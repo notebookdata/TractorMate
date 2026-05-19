@@ -4,6 +4,8 @@ import '../../database/app_database.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency.dart';
 import '../../widgets/status_chip.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:uuid/uuid.dart';
 import '../rentals/add_rental_screen.dart';
 
 class CustomerDetailScreen extends ConsumerStatefulWidget {
@@ -177,7 +179,30 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   }
 
   void _editCustomer() {
-    // Navigate to edit form
+    if (_customer == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditCustomerForm(
+        initial: _customer!,
+        onSave: (name, phone, notes) async {
+          final db = AppDatabase();
+          await db.upsertCustomer(CustomersTableCompanion(
+            id: drift.Value(_customer!.id),
+            name: drift.Value(name),
+            phone: drift.Value(phone.isEmpty ? null : phone),
+            notes: drift.Value(notes.isEmpty ? null : notes),
+            updatedAt: drift.Value(DateTime.now()),
+            isSynced: const drift.Value(false),
+          ));
+          if (mounted) {
+            Navigator.pop(context);
+            _load();
+          }
+        },
+      ),
+    );
   }
 }
 
@@ -290,4 +315,109 @@ class _AmountRow extends StatelessWidget {
           Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
         ],
       );
+}
+
+// ── Edit customer bottom-sheet form ───────────────────────────────────────
+
+class _EditCustomerForm extends StatefulWidget {
+  final CustomersTableData initial;
+  final Future<void> Function(String name, String phone, String notes) onSave;
+
+  const _EditCustomerForm({required this.initial, required this.onSave});
+
+  @override
+  State<_EditCustomerForm> createState() => _EditCustomerFormState();
+}
+
+class _EditCustomerFormState extends State<_EditCustomerForm> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameCtrl = TextEditingController(text: widget.initial.name);
+  late final _phoneCtrl = TextEditingController(text: widget.initial.phone ?? '');
+  late final _notesCtrl = TextEditingController(text: widget.initial.notes ?? '');
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('Edit Customer / ಗ್ರಾಹಕ ಬದಲಿಸಿ',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Customer Name / ಗ್ರಾಹಕರ ಹೆಸರು',
+                prefixIcon: Icon(Icons.person),
+              ),
+              textCapitalization: TextCapitalization.words,
+              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _phoneCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Phone (optional) / ಫೋನ್',
+                prefixIcon: Icon(Icons.phone),
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _notesCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Notes (optional) / ಟಿಪ್ಪಣಿ',
+                prefixIcon: Icon(Icons.notes),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 20),
+            _saving
+                ? const Center(child: CircularProgressIndicator())
+                : ElevatedButton.icon(
+                    onPressed: () async {
+                      if (!_formKey.currentState!.validate()) return;
+                      setState(() => _saving = true);
+                      await widget.onSave(
+                        _nameCtrl.text.trim(),
+                        _phoneCtrl.text.trim(),
+                        _notesCtrl.text.trim(),
+                      );
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save / ಉಳಿಸಿ'),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
 }
