@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/app_database.dart';
 import '../../models/rental.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency.dart';
-
-const _prefKeyCustomTypes = 'custom_work_types';
 
 class AddRentalScreen extends ConsumerStatefulWidget {
   final RentalsTableData? editRental;
@@ -26,7 +23,6 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
   final _rentCtrl = TextEditingController();
   final _paidCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  final _driverCtrl = TextEditingController();
 
   String? _customerId;
   String? _customerName;
@@ -35,14 +31,11 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
   bool _saving = false;
 
   List<CustomersTableData> _customers = [];
-  List<String> _customWorkTypes = [];
-  Map<String, String> _customLabels = {};
 
   @override
   void initState() {
     super.initState();
     _loadCustomers();
-    _loadCustomWorkTypes();
     if (widget.editRental != null) {
       final r = widget.editRental!;
       _customerId = r.customerId;
@@ -51,19 +44,9 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
       _rentCtrl.text = r.rentAmount.toStringAsFixed(0);
       _paidCtrl.text = r.amountPaid.toStringAsFixed(0);
       _notesCtrl.text = r.notes ?? '';
-      _driverCtrl.text = r.driverName ?? '';
     }
     if (widget.preselectedCustomerId != null) {
       _customerId = widget.preselectedCustomerId;
-    }
-    // Auto-fill driver from logged-in user when adding new rental
-    if (widget.editRental == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final username = ref.read(authProvider).username;
-        if (username != null && _driverCtrl.text.isEmpty) {
-          _driverCtrl.text = username;
-        }
-      });
     }
   }
 
@@ -81,87 +64,12 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
     });
   }
 
-  Future<void> _loadCustomWorkTypes() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList(_prefKeyCustomTypes) ?? [];
-    final labels = <String, String>{};
-    for (final key in saved) {
-      final label = prefs.getString('wt_label_$key');
-      if (label != null) labels[key] = label;
-    }
-    setState(() {
-      _customWorkTypes = saved;
-      _customLabels = labels;
-    });
-  }
-
-  Future<void> _addCustomWorkType() async {
-    final ctrl = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Work Type\nಕೆಲಸದ ವಿಧ ಸೇರಿಸಿ',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Paddy Harvest / ಭತ್ತ ಕೊಯ್ಲು',
-            prefixIcon: Icon(Icons.agriculture),
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel / ರದ್ದು'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Add / ಸೇರಿಸಿ'),
-          ),
-        ],
-      ),
-    );
-
-    if (name == null || name.isEmpty) return;
-
-    // Build a URL-safe key from the name
-    final key = 'custom_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
-
-    final prefs = await SharedPreferences.getInstance();
-    final existing = prefs.getStringList(_prefKeyCustomTypes) ?? [];
-
-    if (!existing.contains(key)) {
-      existing.add(key);
-      await prefs.setStringList(_prefKeyCustomTypes, existing);
-      // Also persist the display label so it shows correctly everywhere
-      await prefs.setString('wt_label_$key', name);
-    }
-
-    if (mounted) {
-      setState(() {
-        if (!_customWorkTypes.contains(key)) _customWorkTypes.add(key);
-        _customLabels[key] = name;
-        _workType = key;
-      });
-    }
-  }
-
-  /// Resolve display label: built-in map first, then user-saved labels, then raw key.
-  String _resolveLabel(String wt) =>
-      workTypeLabels[wt] ?? _customLabels[wt] ?? wt;
-
-  /// All work types: built-in + user-added custom ones.
-  List<String> get _allWorkTypes => [...workTypes, ..._customWorkTypes];
 
   @override
   void dispose() {
     _rentCtrl.dispose();
     _paidCtrl.dispose();
     _notesCtrl.dispose();
-    _driverCtrl.dispose();
     super.dispose();
   }
 
@@ -190,7 +98,7 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
       amountPaid: Value(_amountPaid),
       status: Value(_status),
       notes: Value(_notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim()),
-      driverName: Value(_driverCtrl.text.trim().isEmpty ? null : _driverCtrl.text.trim()),
+      driverName: Value(ref.read(authProvider).username),
       updatedAt: Value(DateTime.now()),
       isSynced: const Value(false),
     ));
@@ -271,68 +179,49 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
               Text('Work Type / ಕೆಲಸದ ವಿಧ', style: _labelStyle),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _allWorkTypes.contains(_workType) ? _workType : _allWorkTypes.first,
+                value: workTypes.contains(_workType) ? _workType : workTypes.first,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.agriculture, color: AppTheme.primary),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
                 isExpanded: true,
-                items: [
-                  // Built-in + saved custom types
-                  ..._allWorkTypes.map((wt) => DropdownMenuItem(
-                        value: wt,
-                        child: Text(
-                          _resolveLabel(wt),
-                          style: const TextStyle(fontSize: 15),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      )),
-                  // Special sentinel item to add a new type
-                  const DropdownMenuItem(
-                    value: '__add_custom__',
-                    child: Row(
-                      children: [
-                        Icon(Icons.add_circle_outline, color: AppTheme.primary, size: 20),
-                        SizedBox(width: 8),
-                        Text('Add custom type / ಹೊಸ ವಿಧ ಸೇರಿಸಿ',
-                            style: TextStyle(fontSize: 15, color: AppTheme.primary, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ],
-                onChanged: (v) {
-                  if (v == '__add_custom__') {
-                    _addCustomWorkType();
-                  } else if (v != null) {
-                    setState(() => _workType = v);
-                  }
-                },
+                items: workTypes.map((wt) => DropdownMenuItem(
+                      value: wt,
+                      child: Text(
+                        workTypeLabels[wt] ?? wt,
+                        style: const TextStyle(fontSize: 15),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )).toList(),
+                onChanged: (v) { if (v != null) setState(() => _workType = v); },
               ),
               const SizedBox(height: 16),
 
               const SizedBox(height: 16),
 
-              // Driver / operator name
+              // Driver — read-only, taken from logged-in user
               Text('Driver / ಚಾಲಕ', style: _labelStyle),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _driverCtrl,
-                decoration: InputDecoration(
-                  hintText: 'Driver name / ಚಾಲಕರ ಹೆಸರು',
-                  prefixIcon: const Icon(Icons.person_pin, color: AppTheme.primary),
-                  suffixIcon: ref.watch(authProvider).username != null
-                      ? Tooltip(
-                          message: 'Use logged-in user',
-                          child: IconButton(
-                            icon: const Icon(Icons.account_circle_outlined, color: AppTheme.primary),
-                            onPressed: () => setState(() =>
-                                _driverCtrl.text = ref.read(authProvider).username ?? ''),
-                          ),
-                        )
-                      : null,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                textCapitalization: TextCapitalization.words,
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_pin, color: AppTheme.primary),
+                    const SizedBox(width: 12),
+                    Text(
+                      ref.watch(authProvider).username ?? '—',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.lock_outline, size: 16, color: Colors.grey.shade400),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 
