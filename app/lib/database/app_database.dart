@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
+import 'connection/native.dart'
+    if (dart.library.html) 'connection/web.dart';
 
 part 'app_database.g.dart';
 
@@ -222,10 +220,5 @@ class AppDatabase extends _$AppDatabase {
       );
 }
 
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'tractormate.db'));
-    return NativeDatabase.createInBackground(file);
-  });
-}
+// Resolved at compile-time: native.dart on mobile, web.dart on browser
+DatabaseConnection _openConnection() => openConnection();
