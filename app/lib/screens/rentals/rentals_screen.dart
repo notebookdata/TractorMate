@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../database/app_database.dart';
+import '../../models/rental.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency.dart';
 import '../../widgets/status_chip.dart';
@@ -82,13 +83,7 @@ class _RentalTile extends StatelessWidget {
 
   const _RentalTile({required this.rental});
 
-  static const _workLabels = {
-    'ploughing': 'Ploughing / ಉಳುಮೆ',
-    'sowing': 'Sowing / ಬಿತ್ತನೆ',
-    'harvesting': 'Harvesting / ಕೊಯ್ಲು',
-    'levelling': 'Levelling / ಸಮತಟ್ಟು',
-    'other': 'Other / ಇತರೆ',
-  };
+  static Map<String, String> get _workLabels => workTypeLabels;
 
   @override
   Widget build(BuildContext context) {

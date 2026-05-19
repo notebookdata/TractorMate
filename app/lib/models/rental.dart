@@ -64,4 +64,28 @@ class Rental {
   }
 }
 
-const workTypes = ['ploughing', 'sowing', 'harvesting', 'levelling', 'other'];
+const workTypes = [
+  'double_plough',
+  'rentye',
+  'rotavator',
+  'trolley_work',
+  'cultivators',
+  'maize_thresher',
+  'soybean_thresher',
+];
+
+const workTypeLabels = {
+  'double_plough':    'Double Plough / ಡಬಲ್ ನೇಗಿಲು',
+  'rentye':           'Rentye / ರೆಂಟ್ಯೆ',
+  'rotavator':        'Rotavator / ರೊಟಾವೇಟರ್',
+  'trolley_work':     'Trolley Work / ಟ್ರಾಲಿ ಕೆಲಸ',
+  'cultivators':      'Cultivators / ಕಲ್ಟಿವೇಟರ್',
+  'maize_thresher':   'Maize Thresher / ಮೆಕ್ಕೆಜೋಳ ಮೆಷೀನ್',
+  'soybean_thresher': 'Soybean Thresher / ಸೋಯಾಬೀನ್ ಮೆಷೀನ್',
+  // legacy values kept for display of old records
+  'ploughing':  'Ploughing / ಉಳುಮೆ',
+  'sowing':     'Sowing / ಬಿತ್ತನೆ',
+  'harvesting': 'Harvesting / ಕೊಯ್ಲು',
+  'levelling':  'Levelling / ಸಮತಟ್ಟು',
+  'other':      'Other / ಇತರೆ',
+};

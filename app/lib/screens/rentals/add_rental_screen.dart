@@ -25,7 +25,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
   String? _customerId;
   String? _customerName;
   DateTime _date = DateTime.now();
-  String _workType = 'ploughing';
+  String _workType = 'double_plough';
   bool _saving = false;
 
   List<CustomersTableData> _customers = [];
@@ -38,6 +38,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
       final r = widget.editRental!;
       _customerId = r.customerId;
       _date = r.date;
+      // Keep whatever value is stored (including legacy types)
       _workType = r.workType;
       _rentCtrl.text = r.rentAmount.toStringAsFixed(0);
       _paidCtrl.text = r.amountPaid.toStringAsFixed(0);
@@ -171,25 +172,27 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Work type
+              // Work type dropdown
               Text('Work Type / ಕೆಲಸದ ವಿಧ', style: _labelStyle),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final wt in workTypes)
-                    ChoiceChip(
-                      label: Text(_workTypeLabel(wt), style: const TextStyle(fontSize: 14)),
-                      selected: _workType == wt,
-                      selectedColor: AppTheme.primary,
-                      labelStyle: TextStyle(
-                        color: _workType == wt ? Colors.white : Colors.black87,
-                      ),
-                      onSelected: (_) => setState(() => _workType = wt),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              DropdownButtonFormField<String>(
+                value: workTypes.contains(_workType) ? _workType : workTypes.first,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.agriculture, color: AppTheme.primary),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                isExpanded: true,
+                items: workTypes.map((wt) {
+                  return DropdownMenuItem(
+                    value: wt,
+                    child: Text(
+                      workTypeLabels[wt] ?? wt,
+                      style: const TextStyle(fontSize: 15),
                     ),
-                ],
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => _workType = v ?? _workType),
               ),
               const SizedBox(height: 16),
 
@@ -317,17 +320,6 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
   }
 
   TextStyle get _labelStyle => const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87);
-
-  String _workTypeLabel(String wt) {
-    const m = {
-      'ploughing': 'Ploughing\nಉಳುಮೆ',
-      'sowing': 'Sowing\nಬಿತ್ತನೆ',
-      'harvesting': 'Harvesting\nಕೊಯ್ಲು',
-      'levelling': 'Levelling\nಸಮತಟ್ಟು',
-      'other': 'Other\nಇತರೆ',
-    };
-    return m[wt] ?? wt;
-  }
 
   String _statusLabel(String s) {
     const m = {

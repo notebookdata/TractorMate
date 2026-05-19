@@ -6,6 +6,7 @@ import '../../utils/currency.dart';
 import '../../widgets/status_chip.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
+import '../../models/rental.dart';
 import '../rentals/add_rental_screen.dart';
 
 class CustomerDetailScreen extends ConsumerStatefulWidget {
@@ -284,16 +285,7 @@ class _RentalTile extends StatelessWidget {
     );
   }
 
-  String _workTypeLabel(String wt) {
-    const labels = {
-      'ploughing': 'Ploughing / ಉಳುಮೆ',
-      'sowing': 'Sowing / ಬಿತ್ತನೆ',
-      'harvesting': 'Harvesting / ಕೊಯ್ಲು',
-      'levelling': 'Levelling / ಸಮತಟ್ಟು',
-      'other': 'Other / ಇತರೆ',
-    };
-    return labels[wt] ?? wt;
-  }
+  String _workTypeLabel(String wt) => workTypeLabels[wt] ?? wt;
 }
 
 class _AmountRow extends StatelessWidget {
