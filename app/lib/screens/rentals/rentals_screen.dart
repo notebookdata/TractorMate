@@ -7,9 +7,9 @@ import '../../utils/currency.dart';
 import '../../widgets/status_chip.dart';
 import 'add_rental_screen.dart';
 
-// Key: status filter (null = all)
-final _rentalsProvider = StreamProvider.family<List<RentalsTableData>, String?>(
-  (ref, status) => AppDatabase().watchAllRentals(status: status),
+// Key: status filter ('all' or a real status string)
+final _rentalsProvider = StreamProvider.family<List<RentalsTableData>, String>(
+  (ref, status) => AppDatabase().watchAllRentals(status: status == 'all' ? null : status),
 );
 
 class RentalsScreen extends ConsumerStatefulWidget {
@@ -20,7 +20,7 @@ class RentalsScreen extends ConsumerStatefulWidget {
 }
 
 class _RentalsScreenState extends ConsumerState<RentalsScreen> {
-  String? _statusFilter;
+  String _statusFilter = 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -30,14 +30,27 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
       appBar: AppBar(
         title: const Text('Rentals / ಬಾಡಿಗೆಗಳು'),
         actions: [
-          PopupMenuButton<String?>(
-            icon: const Icon(Icons.filter_list),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.filter_list,
+                color: _statusFilter == 'all' ? null : Colors.orange),
             onSelected: (v) => setState(() => _statusFilter = v),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: null, child: Text('All / ಎಲ್ಲಾ')),
-              PopupMenuItem(value: 'unpaid', child: Text('Unpaid / ಪಾವತಿ ಆಗಿಲ್ಲ')),
-              PopupMenuItem(value: 'partially_paid', child: Text('Partial / ಭಾಗಶಃ')),
-              PopupMenuItem(value: 'fully_paid', child: Text('Paid / ಪಾವತಿ')),
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'all', child: Row(children: [
+                if (_statusFilter == 'all') const Icon(Icons.check, size: 16, color: AppTheme.primary),
+                const SizedBox(width: 8), const Text('All / ಎಲ್ಲಾ'),
+              ])),
+              PopupMenuItem(value: 'unpaid', child: Row(children: [
+                if (_statusFilter == 'unpaid') const Icon(Icons.check, size: 16, color: AppTheme.primary),
+                const SizedBox(width: 8), const Text('Unpaid / ಪಾವತಿ ಆಗಿಲ್ಲ'),
+              ])),
+              PopupMenuItem(value: 'partially_paid', child: Row(children: [
+                if (_statusFilter == 'partially_paid') const Icon(Icons.check, size: 16, color: AppTheme.primary),
+                const SizedBox(width: 8), const Text('Partial / ಭಾಗಶಃ'),
+              ])),
+              PopupMenuItem(value: 'fully_paid', child: Row(children: [
+                if (_statusFilter == 'fully_paid') const Icon(Icons.check, size: 16, color: AppTheme.primary),
+                const SizedBox(width: 8), const Text('Paid / ಪಾವತಿ'),
+              ])),
             ],
           ),
         ],

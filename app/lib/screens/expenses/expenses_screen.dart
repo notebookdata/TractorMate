@@ -7,8 +7,8 @@ import '../../models/expense.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency.dart';
 
-final _expensesProvider = StreamProvider.family<List<ExpensesTableData>, String?>(
-  (ref, category) => AppDatabase().watchAllExpenses(category: category),
+final _expensesProvider = StreamProvider.family<List<ExpensesTableData>, String>(
+  (ref, category) => AppDatabase().watchAllExpenses(category: category == 'all' ? null : category),
 );
 
 class ExpensesScreen extends ConsumerStatefulWidget {
@@ -19,11 +19,12 @@ class ExpensesScreen extends ConsumerStatefulWidget {
 }
 
 class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
-  String? _categoryFilter;
+  String _categoryFilter = 'all';
 
   @override
   Widget build(BuildContext context) {
     final expensesAsync = ref.watch(_expensesProvider(_categoryFilter));
+
     final expenses = expensesAsync.valueOrNull ?? [];
     final total = expenses.fold(0.0, (s, e) => s + e.amount);
 
@@ -31,18 +32,34 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       appBar: AppBar(
         title: const Text('Expenses / ಖರ್ಚುಗಳು'),
         actions: [
-          PopupMenuButton<String?>(
-            icon: const Icon(Icons.filter_list),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.filter_list,
+                color: _categoryFilter == 'all' ? null : Colors.orange),
             onSelected: (v) => setState(() => _categoryFilter = v),
             itemBuilder: (_) => [
-              const PopupMenuItem(value: null, child: Text('All / ಎಲ್ಲಾ')),
-              const PopupMenuItem(value: 'diesel', child: Text('Diesel / ಡೀಸೆಲ್')),
-              const PopupMenuItem(value: 'repairs', child: Text('Repairs / ದುರಸ್ತಿ')),
-              const PopupMenuItem(value: 'maintenance', child: Text('Maintenance / ನಿರ್ವಹಣೆ')),
-              const PopupMenuItem(value: 'spare_parts', child: Text('Spare Parts / ಬಿಡಿ ಭಾಗ')),
-              const PopupMenuItem(value: 'insurance', child: Text('Insurance / ವಿಮೆ')),
-              const PopupMenuItem(value: 'other', child: Text('Other / ಇತರೆ')),
-            ],
+              'all', 'diesel', 'repairs', 'maintenance', 'spare_parts', 'insurance', 'other',
+            ].map((v) {
+              const labels = {
+                'all': 'All / ಎಲ್ಲಾ',
+                'diesel': 'Diesel / ಡೀಸೆಲ್',
+                'repairs': 'Repairs / ದುರಸ್ತಿ',
+                'maintenance': 'Maintenance / ನಿರ್ವಹಣೆ',
+                'spare_parts': 'Spare Parts / ಬಿಡಿ ಭಾಗ',
+                'insurance': 'Insurance / ವಿಮೆ',
+                'other': 'Other / ಇತರೆ',
+              };
+              return PopupMenuItem<String>(
+                value: v,
+                child: Row(children: [
+                  if (_categoryFilter == v)
+                    const Icon(Icons.check, size: 16, color: AppTheme.primary)
+                  else
+                    const SizedBox(width: 16),
+                  const SizedBox(width: 8),
+                  Text(labels[v] ?? v),
+                ]),
+              );
+            }).toList(),
           ),
         ],
         bottom: PreferredSize(
