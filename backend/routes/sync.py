@@ -1,0 +1,216 @@
+"""
+Offline-first sync endpoints.
+
+POST /sync/push  — app sends all locally modified records (is_synced=false)
+GET  /sync/pull  — app fetches all server records changed since a timestamp
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime, timezone
+
+from database import get_db
+from models import Customer, Rental, Expense, PaymentStatus, WorkType, ExpenseCategory
+from auth import get_current_user, User
+
+router = APIRouter(prefix="/sync", tags=["sync"])
+
+
+# ── Pydantic schemas for batch push ──────────────────────────────────────────
+
+class SyncCustomer(BaseModel):
+    id: str
+    name: str
+    phone: Optional[str] = None
+    notes: Optional[str] = None
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+
+class SyncRental(BaseModel):
+    id: str
+    customer_id: str
+    date: datetime
+    work_type: str
+    rent_amount: float
+    amount_paid: float
+    status: str
+    notes: Optional[str] = None
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+
+class SyncExpense(BaseModel):
+    id: str
+    date: datetime
+    category: str
+    amount: float
+    description: Optional[str] = None
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+
+class PushRequest(BaseModel):
+    customers: list[SyncCustomer] = []
+    rentals: list[SyncRental] = []
+    expenses: list[SyncExpense] = []
+
+
+class PushResponse(BaseModel):
+    customers_saved: int
+    rentals_saved: int
+    expenses_saved: int
+
+
+class PullResponse(BaseModel):
+    customers: list[dict]
+    rentals: list[dict]
+    expenses: list[dict]
+    server_time: datetime
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _compute_status(rent_amount: float, amount_paid: float) -> PaymentStatus:
+    if amount_paid <= 0:
+        return PaymentStatus.unpaid
+    elif amount_paid >= rent_amount:
+        return PaymentStatus.fully_paid
+    else:
+        return PaymentStatus.partially_paid
+
+
+def _customer_dict(c: Customer) -> dict:
+    return {
+        "id": c.id, "name": c.name, "phone": c.phone, "notes": c.notes,
+        "created_at": c.created_at.isoformat(),
+        "updated_at": c.updated_at.isoformat(),
+        "deleted_at": c.deleted_at.isoformat() if c.deleted_at else None,
+    }
+
+
+def _rental_dict(r: Rental) -> dict:
+    return {
+        "id": r.id, "customer_id": r.customer_id,
+        "date": r.date.isoformat(),
+        "work_type": r.work_type.value,
+        "rent_amount": r.rent_amount, "amount_paid": r.amount_paid,
+        "status": r.status.value, "notes": r.notes,
+        "created_at": r.created_at.isoformat(),
+        "updated_at": r.updated_at.isoformat(),
+        "deleted_at": r.deleted_at.isoformat() if r.deleted_at else None,
+    }
+
+
+def _expense_dict(e: Expense) -> dict:
+    return {
+        "id": e.id, "date": e.date.isoformat(),
+        "category": e.category.value, "amount": e.amount,
+        "description": e.description,
+        "created_at": e.created_at.isoformat(),
+        "updated_at": e.updated_at.isoformat(),
+        "deleted_at": e.deleted_at.isoformat() if e.deleted_at else None,
+    }
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.post("/push", response_model=PushResponse)
+def push(
+    req: PushRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Upsert all locally modified records from the app."""
+
+    # Customers
+    for sc in req.customers:
+        existing = db.query(Customer).filter(Customer.id == sc.id).first()
+        if existing:
+            if sc.updated_at > existing.updated_at:  # last-write-wins
+                existing.name = sc.name
+                existing.phone = sc.phone
+                existing.notes = sc.notes
+                existing.updated_at = sc.updated_at
+                existing.deleted_at = sc.deleted_at
+        else:
+            db.add(Customer(
+                id=sc.id, name=sc.name, phone=sc.phone, notes=sc.notes,
+                updated_at=sc.updated_at, deleted_at=sc.deleted_at,
+            ))
+
+    # Rentals
+    for sr in req.rentals:
+        # Validate customer exists (may have been pushed in same batch)
+        existing = db.query(Rental).filter(Rental.id == sr.id).first()
+        if existing:
+            if sr.updated_at > existing.updated_at:
+                existing.customer_id = sr.customer_id
+                existing.date = sr.date
+                existing.work_type = WorkType(sr.work_type)
+                existing.rent_amount = sr.rent_amount
+                existing.amount_paid = sr.amount_paid
+                existing.status = _compute_status(sr.rent_amount, sr.amount_paid)
+                existing.notes = sr.notes
+                existing.updated_at = sr.updated_at
+                existing.deleted_at = sr.deleted_at
+        else:
+            db.add(Rental(
+                id=sr.id, customer_id=sr.customer_id,
+                date=sr.date, work_type=WorkType(sr.work_type),
+                rent_amount=sr.rent_amount, amount_paid=sr.amount_paid,
+                status=_compute_status(sr.rent_amount, sr.amount_paid),
+                notes=sr.notes, updated_at=sr.updated_at, deleted_at=sr.deleted_at,
+            ))
+
+    # Expenses
+    for se in req.expenses:
+        existing = db.query(Expense).filter(Expense.id == se.id).first()
+        if existing:
+            if se.updated_at > existing.updated_at:
+                existing.date = se.date
+                existing.category = ExpenseCategory(se.category)
+                existing.amount = se.amount
+                existing.description = se.description
+                existing.updated_at = se.updated_at
+                existing.deleted_at = se.deleted_at
+        else:
+            db.add(Expense(
+                id=se.id, date=se.date, category=ExpenseCategory(se.category),
+                amount=se.amount, description=se.description,
+                updated_at=se.updated_at, deleted_at=se.deleted_at,
+            ))
+
+    db.commit()
+
+    return PushResponse(
+        customers_saved=len(req.customers),
+        rentals_saved=len(req.rentals),
+        expenses_saved=len(req.expenses),
+    )
+
+
+@router.get("/pull", response_model=PullResponse)
+def pull(
+    since: Optional[datetime] = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Return all records modified after `since` (or all records if since is omitted)."""
+
+    def since_filter(q, model):
+        if since:
+            return q.filter(model.updated_at > since)
+        return q
+
+    customers = since_filter(db.query(Customer), Customer).all()
+    rentals = since_filter(db.query(Rental), Rental).all()
+    expenses = since_filter(db.query(Expense), Expense).all()
+
+    return PullResponse(
+        customers=[_customer_dict(c) for c in customers],
+        rentals=[_rental_dict(r) for r in rentals],
+        expenses=[_expense_dict(e) for e in expenses],
+        server_time=datetime.now(timezone.utc).replace(tzinfo=None),
+    )

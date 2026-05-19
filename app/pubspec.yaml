@@ -1,0 +1,73 @@
+name: tractormate
+description: Tractor Rent & Expense Tracker
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Local database (offline-first)
+  drift: ^2.23.1
+  sqlite3_flutter_libs: ^0.5.30
+  path_provider: ^2.1.5
+  path: ^1.9.1
+
+  # State management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # HTTP & Auth
+  dio: ^5.8.0+1
+  flutter_secure_storage: ^9.2.4
+
+  # Connectivity & Background sync
+  connectivity_plus: ^6.1.4
+  workmanager: ^0.5.2
+
+  # Charts
+  fl_chart: ^0.70.2
+
+  # PDF & sharing
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  share_plus: ^10.1.4
+
+  # Image picker (receipt photos)
+  image_picker: ^1.1.2
+
+  # i18n
+  intl: ^0.20.2
+
+  # Utils
+  uuid: ^4.5.1
+  shared_preferences: ^2.3.5
+  cached_network_image: ^3.4.1
+  image_cropper: ^9.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.15
+  drift_dev: ^2.23.1
+  riverpod_generator: ^2.6.1
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: NotoSansKannada
+      fonts:
+        - asset: assets/fonts/NotoSansKannada-Regular.ttf
+        - asset: assets/fonts/NotoSansKannada-Bold.ttf
+          weight: 700

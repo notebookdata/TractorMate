@@ -1,0 +1,293 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../database/app_database.dart';
+import '../../theme/app_theme.dart';
+import '../../utils/currency.dart';
+import '../../widgets/status_chip.dart';
+import '../rentals/add_rental_screen.dart';
+
+class CustomerDetailScreen extends ConsumerStatefulWidget {
+  final String customerId;
+  final String customerName;
+
+  const CustomerDetailScreen({
+    super.key,
+    required this.customerId,
+    required this.customerName,
+  });
+
+  @override
+  ConsumerState<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
+}
+
+class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
+  List<RentalsTableData> _rentals = [];
+  CustomersTableData? _customer;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final db = AppDatabase();
+    final customer = await db.getCustomer(widget.customerId);
+    final rentals = await db.getAllRentals(customerId: widget.customerId);
+    setState(() {
+      _customer = customer;
+      _rentals = rentals.where((r) => r.deletedAt == null).toList();
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalRent = _rentals.fold(0.0, (s, r) => s + r.rentAmount);
+    final totalPaid = _rentals.fold(0.0, (s, r) => s + r.amountPaid);
+    final balance = totalRent - totalPaid;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.customerName),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: _editCustomer,
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddRentalScreen(preselectedCustomerId: widget.customerId),
+          ),
+        ).then((_) => _load()),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Rental / ಬಾಡಿಗೆ ಸೇರಿಸಿ'),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    // Summary card
+                    Container(
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _SummaryItem(label: 'Total Rent\nಒಟ್ಟು ಬಾಡಿಗೆ', value: formatRupees(totalRent)),
+                              Container(width: 1, height: 50, color: Colors.white30),
+                              _SummaryItem(label: 'Total Paid\nಒಟ್ಟು ಪಾವತಿ', value: formatRupees(totalPaid)),
+                              Container(width: 1, height: 50, color: Colors.white30),
+                              _SummaryItem(
+                                label: 'Balance\nಬಾಕಿ',
+                                value: formatRupees(balance),
+                                highlight: balance > 0,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${_rentals.length} rentals',
+                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Phone / notes
+                    if (_customer?.phone != null || _customer?.notes != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_customer?.phone != null)
+                                  Row(children: [
+                                    const Icon(Icons.phone, size: 18, color: AppTheme.primary),
+                                    const SizedBox(width: 8),
+                                    Text(_customer!.phone!, style: const TextStyle(fontSize: 16)),
+                                  ]),
+                                if (_customer?.notes != null) ...[
+                                  const SizedBox(height: 8),
+                                  Row(children: [
+                                    const Icon(Icons.notes, size: 18, color: AppTheme.primary),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: Text(_customer!.notes!, style: const TextStyle(fontSize: 15))),
+                                  ]),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Row(
+                        children: [
+                          Text('Rental History / ಬಾಡಿಗೆ ಇತಿಹಾಸ',
+                              style: Theme.of(context).textTheme.titleMedium),
+                        ],
+                      ),
+                    ),
+
+                    if (_rentals.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          children: [
+                            Icon(Icons.agriculture, size: 60, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('No rentals yet\nಇನ್ನೂ ಬಾಡಿಗೆಗಳಿಲ್ಲ',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey.shade500)),
+                          ],
+                        ),
+                      )
+                    else
+                      ...(_rentals.map((r) => _RentalTile(rental: r, onUpdated: _load))),
+
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  void _editCustomer() {
+    // Navigate to edit form
+  }
+}
+
+class _SummaryItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool highlight;
+
+  const _SummaryItem({required this.label, required this.value, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                color: highlight ? const Color(0xFFFFCC80) : Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              )),
+          const SizedBox(height: 4),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        ],
+      );
+}
+
+class _RentalTile extends StatelessWidget {
+  final RentalsTableData rental;
+  final VoidCallback onUpdated;
+
+  const _RentalTile({required this.rental, required this.onUpdated});
+
+  @override
+  Widget build(BuildContext context) {
+    final balance = rental.rentAmount - rental.amountPaid;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.agriculture, color: AppTheme.primary, size: 20),
+                const SizedBox(width: 8),
+                Text(_workTypeLabel(rental.workType),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Spacer(),
+                StatusChip(status: rental.status, small: true),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade500),
+                const SizedBox(width: 4),
+                Text(formatDate(rental.date), style: TextStyle(color: Colors.grey.shade600)),
+              ],
+            ),
+            const Divider(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _AmountRow(label: 'Rent', amount: rental.rentAmount),
+                _AmountRow(label: 'Paid', amount: rental.amountPaid, color: AppTheme.paid),
+                if (balance > 0)
+                  _AmountRow(label: 'Due', amount: balance, color: AppTheme.unpaid),
+              ],
+            ),
+            if (rental.notes != null && rental.notes!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(rental.notes!, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _workTypeLabel(String wt) {
+    const labels = {
+      'ploughing': 'Ploughing / ಉಳುಮೆ',
+      'sowing': 'Sowing / ಬಿತ್ತನೆ',
+      'harvesting': 'Harvesting / ಕೊಯ್ಲು',
+      'levelling': 'Levelling / ಸಮತಟ್ಟು',
+      'other': 'Other / ಇತರೆ',
+    };
+    return labels[wt] ?? wt;
+  }
+}
+
+class _AmountRow extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color? color;
+
+  const _AmountRow({required this.label, required this.amount, this.color});
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Text(formatRupees(amount),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: color ?? Colors.black87,
+              )),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        ],
+      );
+}
