@@ -94,70 +94,60 @@ class DashboardScreen extends ConsumerWidget {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Earnings / ಗಳಿಕೆ',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
-                  ),
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text('Earnings / ಗಳಿಕೆ',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
                 ),
-                const SizedBox(height: 8),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  crossAxisSpacing: 4,
-                  mainAxisSpacing: 4,
-                  childAspectRatio: 1.4,
+                // 2x2 grid of earning cards
+                Row(
                   children: [
-                    StatCard(label: 'Today\nಇಂದು', amount: d['today']!, icon: Icons.today, color: AppTheme.primary),
-                    StatCard(label: 'This Week\nಈ ವಾರ', amount: d['week']!, icon: Icons.date_range, color: Colors.teal),
-                    StatCard(label: 'This Month\nಈ ತಿಂಗಳು', amount: d['month']!, icon: Icons.calendar_month, color: Colors.indigo),
-                    StatCard(label: 'This Year\nಈ ವರ್ಷ', amount: d['year']!, icon: Icons.bar_chart, color: Colors.deepPurple),
+                    Expanded(child: StatCard(label: 'Today', labelKn: 'ಇಂದು', amount: d['today']!, icon: Icons.today, color: AppTheme.primary)),
+                    const SizedBox(width: 8),
+                    Expanded(child: StatCard(label: 'This Week', labelKn: 'ಈ ವಾರ', amount: d['week']!, icon: Icons.date_range, color: Colors.teal)),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: StatCard(label: 'This Month', labelKn: 'ಈ ತಿಂಗಳು', amount: d['month']!, icon: Icons.calendar_month, color: Colors.indigo)),
+                    const SizedBox(width: 8),
+                    Expanded(child: StatCard(label: 'This Year', labelKn: 'ಈ ವರ್ಷ', amount: d['year']!, icon: Icons.bar_chart, color: Colors.deepPurple)),
+                  ],
+                ),
+                const SizedBox(height: 20),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Summary / ಸಾರಾಂಶ',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
-                  ),
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text('Summary / ಸಾರಾಂಶ',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
+                ),
+                StatCard(
+                  label: 'Total Pending Balance',
+                  labelKn: 'ಒಟ್ಟು ಬಾಕಿ',
+                  amount: d['pending']!,
+                  icon: Icons.pending_actions,
+                  color: AppTheme.unpaid,
                 ),
                 const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Column(
-                    children: [
-                      StatCard(
-                        label: 'Total Pending Balance\nಒಟ್ಟು ಬಾಕಿ',
-                        amount: d['pending']!,
-                        icon: Icons.pending_actions,
-                        color: AppTheme.unpaid,
-                      ),
-                      const SizedBox(height: 4),
-                      StatCard(
-                        label: 'This Month Expenses\nಈ ತಿಂಗಳ ಖರ್ಚು',
-                        amount: d['month_expenses']!,
-                        icon: Icons.money_off,
-                        color: AppTheme.partial,
-                      ),
-                      const SizedBox(height: 4),
-                      StatCard(
-                        label: 'This Month Net Profit\nಈ ತಿಂಗಳ ನಿವ್ವಳ ಲಾಭ',
-                        amount: d['net_profit']!,
-                        icon: Icons.trending_up,
-                        color: d['net_profit']! >= 0 ? AppTheme.paid : AppTheme.danger,
-                      ),
-                    ],
-                  ),
+                StatCard(
+                  label: 'This Month Expenses',
+                  labelKn: 'ಈ ತಿಂಗಳ ಖರ್ಚು',
+                  amount: d['month_expenses']!,
+                  icon: Icons.money_off,
+                  color: AppTheme.partial,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                StatCard(
+                  label: 'This Month Net Profit',
+                  labelKn: 'ಈ ತಿಂಗಳ ನಿವ್ವಳ ಲಾಭ',
+                  amount: d['net_profit']!,
+                  icon: Icons.trending_up,
+                  color: d['net_profit']! >= 0 ? AppTheme.paid : AppTheme.danger,
+                ),
               ],
             ),
           ),

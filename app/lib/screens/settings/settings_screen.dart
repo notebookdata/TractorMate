@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../theme/app_theme.dart';
+import '../reports/reports_screen.dart';
 
 const _keyLanguage = 'app_language';
 
@@ -232,6 +233,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Reports
+          _SectionHeader('Reports / ವರದಿಗಳು'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.picture_as_pdf, color: AppTheme.primary),
+              title: const Text('Generate Reports', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: const Text('PDF • ಹಂಚಿಕೊಳ್ಳಿ • Print'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReportsScreen()),
               ),
             ),
           ),

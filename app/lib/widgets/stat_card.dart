@@ -4,6 +4,7 @@ import '../utils/currency.dart';
 
 class StatCard extends StatelessWidget {
   final String label;
+  final String labelKn;
   final double amount;
   final IconData icon;
   final Color? color;
@@ -12,6 +13,7 @@ class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
     required this.label,
+    required this.labelKn,
     required this.amount,
     required this.icon,
     this.color,
@@ -28,40 +30,56 @@ class StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: cardColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      color: cardColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(icon, color: cardColor, size: 24),
+                    child: Icon(icon, color: cardColor, size: 20),
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+                  Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 16),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                formatRupees(amount),
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: cardColor,
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  formatRupees(amount),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: cardColor,
+                  ),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 12,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                labelKn,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade500,
                 ),
               ),
             ],

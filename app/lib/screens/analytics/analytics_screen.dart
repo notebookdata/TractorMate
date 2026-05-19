@@ -119,9 +119,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       BarChartData(
                         maxY: [
                           _data['collected'] ?? 0,
+                          _data['pending'] ?? 0,
                           _data['expenses'] ?? 0,
+                          (_data['profit'] ?? 0).clamp(0, double.infinity),
                           1000,
-                        ].reduce((a, b) => a > b ? a : b) * 1.2,
+                        ].reduce((a, b) => a > b ? a : b) * 1.3,
                         barGroups: [
                           _bar(0, _data['collected'] ?? 0, AppTheme.paid, 'Collected'),
                           _bar(1, _data['pending'] ?? 0, AppTheme.partial, 'Pending'),
