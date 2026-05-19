@@ -11,6 +11,20 @@ final _customersProvider = StreamProvider.family<List<CustomersTableData>, Strin
   (ref, search) => AppDatabase().watchAllCustomers(search: search.isEmpty ? null : search),
 );
 
+// Reactive balance per customer — re-emits whenever any rental for this customer changes
+final _customerBalanceProvider =
+    StreamProvider.family<Map<String, double>, String>((ref, customerId) {
+  return AppDatabase().watchAllRentals(customerId: customerId).map((rentals) {
+    final totalRent = rentals.fold(0.0, (s, r) => s + r.rentAmount);
+    final totalPaid = rentals.fold(0.0, (s, r) => s + r.amountPaid);
+    return {
+      'totalRent': totalRent,
+      'totalPaid': totalPaid,
+      'balance': totalRent - totalPaid,
+    };
+  });
+});
+
 class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
 
@@ -127,57 +141,64 @@ class _CustomerTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<Map<String, double>>(
-      future: _getBalance(customer.id),
-      builder: (ctx, snap) {
-        final balance = snap.data?['balance'] ?? 0.0;
-        return Card(
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppTheme.primary.withOpacity(0.12),
-              child: Text(
-                customer.name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-            ),
-            title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-            subtitle: customer.phone != null
-                ? Text(customer.phone!, style: const TextStyle(fontSize: 14))
-                : null,
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (balance > 0) ...[
-                  Text(
-                    'Balance: ${formatRupees(balance)}',
-                    style: const TextStyle(color: AppTheme.unpaid, fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ] else ...[
-                  const Icon(Icons.check_circle, color: AppTheme.paid, size: 20),
-                  const Text('Paid', style: TextStyle(color: AppTheme.paid, fontSize: 12)),
-                ],
-              ],
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CustomerDetailScreen(customerId: customer.id, customerName: customer.name),
-              ),
-            ).then((_) => onRefresh()),
-          ),
-        );
-      },
-    );
-  }
+    // Watch balance stream — updates automatically when any rental changes
+    final balanceAsync = ref.watch(_customerBalanceProvider(customer.id));
+    final balance = balanceAsync.valueOrNull?['balance'] ?? 0.0;
+    final hasRentals = (balanceAsync.valueOrNull?['totalRent'] ?? 0.0) > 0;
 
-  Future<Map<String, double>> _getBalance(String customerId) async {
-    final db = AppDatabase();
-    final rentals = await db.getAllRentals(customerId: customerId);
-    final active = rentals.where((r) => r.deletedAt == null);
-    final totalRent = active.fold(0.0, (s, r) => s + r.rentAmount);
-    final totalPaid = active.fold(0.0, (s, r) => s + r.amountPaid);
-    return {'totalRent': totalRent, 'totalPaid': totalPaid, 'balance': totalRent - totalPaid};
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+          child: Text(
+            customer.name.substring(0, 1).toUpperCase(),
+            style: const TextStyle(
+                color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+        ),
+        title: Text(customer.name,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        subtitle: customer.phone != null
+            ? Text(customer.phone!, style: const TextStyle(fontSize: 14))
+            : null,
+        trailing: balanceAsync.isLoading
+            ? const SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (balance > 0.01) ...[
+                    Text(
+                      'Balance: ${formatRupees(balance)}',
+                      style: const TextStyle(
+                          color: AppTheme.unpaid,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13),
+                    ),
+                  ] else if (hasRentals) ...[
+                    const Icon(Icons.check_circle, color: AppTheme.paid, size: 20),
+                    const Text('Paid',
+                        style: TextStyle(color: AppTheme.paid, fontSize: 12)),
+                  ] else ...[
+                    Icon(Icons.person_outline,
+                        size: 20, color: Colors.grey.shade400),
+                    Text('No rentals',
+                        style: TextStyle(
+                            color: Colors.grey.shade400, fontSize: 11)),
+                  ],
+                ],
+              ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CustomerDetailScreen(
+                customerId: customer.id, customerName: customer.name),
+          ),
+        ),
+      ),
+    );
   }
 }
 
