@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
 import '../../database/app_database.dart';
@@ -6,38 +7,25 @@ import '../../models/expense.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency.dart';
 
-class ExpensesScreen extends StatefulWidget {
+final _expensesProvider = StreamProvider.family<List<ExpensesTableData>, String?>(
+  (ref, category) => AppDatabase().watchAllExpenses(category: category),
+);
+
+class ExpensesScreen extends ConsumerStatefulWidget {
   const ExpensesScreen({super.key});
 
   @override
-  State<ExpensesScreen> createState() => _ExpensesScreenState();
+  ConsumerState<ExpensesScreen> createState() => _ExpensesScreenState();
 }
 
-class _ExpensesScreenState extends State<ExpensesScreen> {
-  List<ExpensesTableData> _expenses = [];
-  bool _loading = true;
+class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   String? _categoryFilter;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final db = AppDatabase();
-    var all = await db.getAllExpenses(category: _categoryFilter);
-    all = all.where((e) => e.deletedAt == null).toList();
-    setState(() {
-      _expenses = all;
-      _loading = false;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final total = _expenses.fold(0.0, (s, e) => s + e.amount);
+    final expensesAsync = ref.watch(_expensesProvider(_categoryFilter));
+    final expenses = expensesAsync.valueOrNull ?? [];
+    final total = expenses.fold(0.0, (s, e) => s + e.amount);
 
     return Scaffold(
       appBar: AppBar(
@@ -45,10 +33,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         actions: [
           PopupMenuButton<String?>(
             icon: const Icon(Icons.filter_list),
-            onSelected: (v) {
-              setState(() => _categoryFilter = v);
-              _load();
-            },
+            onSelected: (v) => setState(() => _categoryFilter = v),
             itemBuilder: (_) => [
               const PopupMenuItem(value: null, child: Text('All / ಎಲ್ಲಾ')),
               const PopupMenuItem(value: 'diesel', child: Text('Diesel / ಡೀಸೆಲ್')),
@@ -71,7 +56,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
-                Text('(${_expenses.length} entries)',
+                Text('(${expenses.length} entries)',
                     style: const TextStyle(color: Colors.white70, fontSize: 13)),
               ],
             ),
@@ -83,11 +68,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         icon: const Icon(Icons.add, size: 28),
         label: const Text('Add / ಸೇರಿಸಿ', style: TextStyle(fontSize: 16)),
       ),
-      body: _loading
+      body: expensesAsync.isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _load,
-              child: _expenses.isEmpty
+              onRefresh: () async {},
+              child: expenses.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -102,10 +87,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: 100),
-                      itemCount: _expenses.length,
+                      itemCount: expenses.length,
                       itemBuilder: (ctx, i) => _ExpenseTile(
-                        expense: _expenses[i],
-                        onUpdated: _load,
+                        expense: expenses[i],
+                        onUpdated: () {},
                       ),
                     ),
             ),
@@ -130,7 +115,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           ));
           if (mounted) {
             Navigator.pop(context);
-            _load();
           }
         },
       ),

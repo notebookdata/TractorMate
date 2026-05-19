@@ -6,7 +6,7 @@ import '../../widgets/stat_card.dart';
 import '../../widgets/sync_badge.dart';
 import '../../services/sync_service.dart';
 
-final _dashboardProvider = FutureProvider<Map<String, double>>((ref) async {
+Future<Map<String, double>> _computeDashboard() async {
   final db = AppDatabase();
   final now = DateTime.now();
 
@@ -15,14 +15,14 @@ final _dashboardProvider = FutureProvider<Map<String, double>>((ref) async {
   final monthStart = DateTime(now.year, now.month, 1);
   final yearStart = DateTime(now.year, 1, 1);
 
-  Future<double> earnings(DateTime from, DateTime to) async {
-    final rentals = await db.getRentalsByDateRange(from, to);
-    return rentals.fold<double>(0.0, (s, r) => s + r.amountPaid);
+  Future<double> earn(DateTime from, DateTime to) async {
+    final rows = await db.getRentalsByDateRange(from, to);
+    return rows.fold<double>(0.0, (s, r) => s + r.amountPaid);
   }
 
-  Future<double> expenses(DateTime from, DateTime to) async {
-    final exps = await db.getExpensesByDateRange(from, to);
-    return exps.fold<double>(0.0, (s, e) => s + e.amount);
+  Future<double> exp(DateTime from, DateTime to) async {
+    final rows = await db.getExpensesByDateRange(from, to);
+    return rows.fold<double>(0.0, (s, e) => s + e.amount);
   }
 
   final allRentals = await db.getAllRentals();
@@ -35,11 +35,11 @@ final _dashboardProvider = FutureProvider<Map<String, double>>((ref) async {
   final monthEnd = DateTime(now.year, now.month + 1, 1);
   final yearEnd = DateTime(now.year + 1, 1, 1);
 
-  final todayEarn = await earnings(todayStart, todayEnd);
-  final weekEarn = await earnings(weekStart, weekEnd);
-  final monthEarn = await earnings(monthStart, monthEnd);
-  final yearEarn = await earnings(yearStart, yearEnd);
-  final monthExp = await expenses(monthStart, monthEnd);
+  final todayEarn = await earn(todayStart, todayEnd);
+  final weekEarn = await earn(weekStart, weekEnd);
+  final monthEarn = await earn(monthStart, monthEnd);
+  final yearEarn = await earn(yearStart, yearEnd);
+  final monthExp = await exp(monthStart, monthEnd);
 
   return {
     'today': todayEarn,
@@ -50,6 +50,13 @@ final _dashboardProvider = FutureProvider<Map<String, double>>((ref) async {
     'net_profit': monthEarn - monthExp,
     'month_expenses': monthExp,
   };
+}
+
+// Streams every time any rental row changes → re-computes dashboard figures automatically
+final _dashboardProvider = StreamProvider<Map<String, double>>((ref) async* {
+  await for (final _ in AppDatabase().watchAllRentals()) {
+    yield await _computeDashboard();
+  }
 });
 
 class DashboardScreen extends ConsumerWidget {
@@ -77,9 +84,8 @@ class DashboardScreen extends ConsumerWidget {
               onPressed: () async {
                 final svc = ref.read(syncServiceProvider);
                 await svc.sync();
-                ref.invalidate(_dashboardProvider);
               },
-              tooltip: 'Sync',
+              tooltip: 'Sync / ಸಿಂಕ್',
             ),
           ),
         ],
@@ -87,69 +93,62 @@ class DashboardScreen extends ConsumerWidget {
       body: data.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (d) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(_dashboardProvider);
-            await ref.read(syncServiceProvider).sync();
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 8),
-                  child: Text('Earnings / ಗಳಿಕೆ',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
-                ),
-                // 2x2 grid of earning cards
-                Row(
-                  children: [
-                    Expanded(child: StatCard(label: 'Today', labelKn: 'ಇಂದು', amount: d['today']!, icon: Icons.today, color: AppTheme.primary)),
-                    const SizedBox(width: 8),
-                    Expanded(child: StatCard(label: 'This Week', labelKn: 'ಈ ವಾರ', amount: d['week']!, icon: Icons.date_range, color: Colors.teal)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(child: StatCard(label: 'This Month', labelKn: 'ಈ ತಿಂಗಳು', amount: d['month']!, icon: Icons.calendar_month, color: Colors.indigo)),
-                    const SizedBox(width: 8),
-                    Expanded(child: StatCard(label: 'This Year', labelKn: 'ಈ ವರ್ಷ', amount: d['year']!, icon: Icons.bar_chart, color: Colors.deepPurple)),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 8),
-                  child: Text('Summary / ಸಾರಾಂಶ',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
-                ),
-                StatCard(
-                  label: 'Total Pending Balance',
-                  labelKn: 'ಒಟ್ಟು ಬಾಕಿ',
-                  amount: d['pending']!,
-                  icon: Icons.pending_actions,
-                  color: AppTheme.unpaid,
-                ),
-                const SizedBox(height: 8),
-                StatCard(
-                  label: 'This Month Expenses',
-                  labelKn: 'ಈ ತಿಂಗಳ ಖರ್ಚು',
-                  amount: d['month_expenses']!,
-                  icon: Icons.money_off,
-                  color: AppTheme.partial,
-                ),
-                const SizedBox(height: 8),
-                StatCard(
-                  label: 'This Month Net Profit',
-                  labelKn: 'ಈ ತಿಂಗಳ ನಿವ್ವಳ ಲಾಭ',
-                  amount: d['net_profit']!,
-                  icon: Icons.trending_up,
-                  color: d['net_profit']! >= 0 ? AppTheme.paid : AppTheme.danger,
-                ),
-              ],
-            ),
+        data: (d) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                child: Text('Earnings / ಗಳಿಕೆ',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
+              ),
+              Row(
+                children: [
+                  Expanded(child: StatCard(label: 'Today', labelKn: 'ಇಂದು', amount: d['today']!, icon: Icons.today, color: AppTheme.primary)),
+                  const SizedBox(width: 8),
+                  Expanded(child: StatCard(label: 'This Week', labelKn: 'ಈ ವಾರ', amount: d['week']!, icon: Icons.date_range, color: Colors.teal)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: StatCard(label: 'This Month', labelKn: 'ಈ ತಿಂಗಳು', amount: d['month']!, icon: Icons.calendar_month, color: Colors.indigo)),
+                  const SizedBox(width: 8),
+                  Expanded(child: StatCard(label: 'This Year', labelKn: 'ಈ ವರ್ಷ', amount: d['year']!, icon: Icons.bar_chart, color: Colors.deepPurple)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                child: Text('Summary / ಸಾರಾಂಶ',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
+              ),
+              StatCard(
+                label: 'Total Pending Balance',
+                labelKn: 'ಒಟ್ಟು ಬಾಕಿ',
+                amount: d['pending']!,
+                icon: Icons.pending_actions,
+                color: AppTheme.unpaid,
+              ),
+              const SizedBox(height: 8),
+              StatCard(
+                label: 'This Month Expenses',
+                labelKn: 'ಈ ತಿಂಗಳ ಖರ್ಚು',
+                amount: d['month_expenses']!,
+                icon: Icons.money_off,
+                color: AppTheme.partial,
+              ),
+              const SizedBox(height: 8),
+              StatCard(
+                label: 'This Month Net Profit',
+                labelKn: 'ಈ ತಿಂಗಳ ನಿವ್ವಳ ಲಾಭ',
+                amount: d['net_profit']!,
+                icon: Icons.trending_up,
+                color: d['net_profit']! >= 0 ? AppTheme.paid : AppTheme.danger,
+              ),
+            ],
           ),
         ),
       ),

@@ -6,6 +6,11 @@ import '../../utils/currency.dart';
 import '../../widgets/status_chip.dart';
 import 'add_rental_screen.dart';
 
+// Key: status filter (null = all)
+final _rentalsProvider = StreamProvider.family<List<RentalsTableData>, String?>(
+  (ref, status) => AppDatabase().watchAllRentals(status: status),
+);
+
 class RentalsScreen extends ConsumerStatefulWidget {
   const RentalsScreen({super.key});
 
@@ -14,47 +19,24 @@ class RentalsScreen extends ConsumerStatefulWidget {
 }
 
 class _RentalsScreenState extends ConsumerState<RentalsScreen> {
-  List<RentalsTableData> _rentals = [];
-  bool _loading = true;
   String? _statusFilter;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final db = AppDatabase();
-    var all = await db.getAllRentals();
-    all = all.where((r) => r.deletedAt == null).toList();
-    if (_statusFilter != null) {
-      all = all.where((r) => r.status == _statusFilter).toList();
-    }
-    setState(() {
-      _rentals = all;
-      _loading = false;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final rentalsAsync = ref.watch(_rentalsProvider(_statusFilter));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rentals / ಬಾಡಿಗೆಗಳು'),
         actions: [
           PopupMenuButton<String?>(
             icon: const Icon(Icons.filter_list),
-            onSelected: (v) {
-              setState(() => _statusFilter = v);
-              _load();
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: null, child: Text('All / ಎಲ್ಲಾ')),
-              const PopupMenuItem(value: 'unpaid', child: Text('Unpaid / ಪಾವತಿ ಆಗಿಲ್ಲ')),
-              const PopupMenuItem(value: 'partially_paid', child: Text('Partial / ಭಾಗಶಃ')),
-              const PopupMenuItem(value: 'fully_paid', child: Text('Paid / ಪಾವತಿ')),
+            onSelected: (v) => setState(() => _statusFilter = v),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: null, child: Text('All / ಎಲ್ಲಾ')),
+              PopupMenuItem(value: 'unpaid', child: Text('Unpaid / ಪಾವತಿ ಆಗಿಲ್ಲ')),
+              PopupMenuItem(value: 'partially_paid', child: Text('Partial / ಭಾಗಶಃ')),
+              PopupMenuItem(value: 'fully_paid', child: Text('Paid / ಪಾವತಿ')),
             ],
           ),
         ],
@@ -63,45 +45,42 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AddRentalScreen()),
-        ).then((_) => _load()),
+        ),
         icon: const Icon(Icons.add, size: 28),
         label: const Text('Add / ಸೇರಿಸಿ', style: TextStyle(fontSize: 16)),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _rentals.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.agriculture, size: 80, color: Colors.grey.shade300),
-                          const SizedBox(height: 16),
-                          Text('No rentals yet\nಇನ್ನೂ ಬಾಡಿಗೆಗಳಿಲ್ಲ',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 100),
-                      itemCount: _rentals.length,
-                      itemBuilder: (ctx, i) => _RentalTile(
-                        rental: _rentals[i],
-                        onUpdated: _load,
-                      ),
+      body: rentalsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (rentals) => rentals.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.agriculture, size: 80, color: Colors.grey.shade300),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No rentals yet\nಇನ್ನೂ ಬಾಡಿಗೆಗಳಿಲ್ಲ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
                     ),
-            ),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.only(bottom: 100),
+                itemCount: rentals.length,
+                itemBuilder: (ctx, i) => _RentalTile(rental: rentals[i]),
+              ),
+      ),
     );
   }
 }
 
 class _RentalTile extends StatelessWidget {
   final RentalsTableData rental;
-  final VoidCallback onUpdated;
 
-  const _RentalTile({required this.rental, required this.onUpdated});
+  const _RentalTile({required this.rental});
 
   static const _workLabels = {
     'ploughing': 'Ploughing / ಉಳುಮೆ',
@@ -123,7 +102,7 @@ class _RentalTile extends StatelessWidget {
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: CircleAvatar(
-              backgroundColor: AppTheme.statusColor(rental.status).withOpacity(0.12),
+              backgroundColor: AppTheme.statusColor(rental.status).withValues(alpha: 0.12),
               child: Icon(Icons.agriculture, color: AppTheme.statusColor(rental.status)),
             ),
             title: Row(
@@ -144,18 +123,17 @@ class _RentalTile extends StatelessWidget {
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
                 const SizedBox(height: 4),
-                Row(
+                Wrap(
+                  spacing: 12,
                   children: [
                     Text('Rent: ${formatRupees(rental.rentAmount)}',
                         style: const TextStyle(fontSize: 13)),
-                    const SizedBox(width: 12),
                     Text('Paid: ${formatRupees(rental.amountPaid)}',
                         style: const TextStyle(color: AppTheme.paid, fontSize: 13)),
-                    if (balance > 0) ...[
-                      const SizedBox(width: 12),
+                    if (balance > 0)
                       Text('Due: ${formatRupees(balance)}',
-                          style: const TextStyle(color: AppTheme.unpaid, fontSize: 13, fontWeight: FontWeight.bold)),
-                    ],
+                          style: const TextStyle(
+                              color: AppTheme.unpaid, fontSize: 13, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ],
@@ -163,7 +141,7 @@ class _RentalTile extends StatelessWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => AddRentalScreen(editRental: rental)),
-            ).then((_) => onUpdated()),
+            ),
           );
         },
       ),

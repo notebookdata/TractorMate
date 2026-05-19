@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/auth_service.dart';
+import '../../services/sync_service.dart';
 import '../../theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -46,6 +47,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
     if (ok && mounted) {
       Navigator.pushReplacementNamed(context, '/home');
+      // Kick off a background sync immediately after login so any server-side
+      // data (e.g. after a reinstall) is pulled into the local DB right away.
+      ref.read(syncServiceProvider).sync();
     }
   }
 

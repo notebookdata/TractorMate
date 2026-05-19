@@ -88,6 +88,16 @@ class AppDatabase extends _$AppDatabase {
     return q.get();
   }
 
+  Stream<List<CustomersTableData>> watchAllCustomers({String? search}) {
+    final q = select(customersTable)
+      ..where((t) => t.deletedAt.isNull());
+    if (search != null && search.isNotEmpty) {
+      q.where((t) => t.name.lower().like('%${search.toLowerCase()}%'));
+    }
+    q.orderBy([(t) => OrderingTerm.asc(t.name)]);
+    return q.watch();
+  }
+
   Future<CustomersTableData?> getCustomer(String id) =>
       (select(customersTable)..where((t) => t.id.equals(id))).getSingleOrNull();
 
@@ -110,6 +120,18 @@ class AppDatabase extends _$AppDatabase {
     }
     q.orderBy([(t) => OrderingTerm.desc(t.date)]);
     return q.get();
+  }
+
+  Stream<List<RentalsTableData>> watchAllRentals({String? customerId, String? status}) {
+    final q = select(rentalsTable)..where((t) => t.deletedAt.isNull());
+    if (customerId != null) {
+      q.where((t) => t.customerId.equals(customerId));
+    }
+    if (status != null) {
+      q.where((t) => t.status.equals(status));
+    }
+    q.orderBy([(t) => OrderingTerm.desc(t.date)]);
+    return q.watch();
   }
 
   Future<void> upsertRental(RentalsTableCompanion r) =>
@@ -140,6 +162,15 @@ class AppDatabase extends _$AppDatabase {
     return q.get();
   }
 
+  Stream<List<ExpensesTableData>> watchAllExpenses({String? category}) {
+    final q = select(expensesTable)..where((t) => t.deletedAt.isNull());
+    if (category != null) {
+      q.where((t) => t.category.equals(category));
+    }
+    q.orderBy([(t) => OrderingTerm.desc(t.date)]);
+    return q.watch();
+  }
+
   Future<void> upsertExpense(ExpensesTableCompanion e) =>
       into(expensesTable).insertOnConflictUpdate(e);
 
@@ -156,6 +187,16 @@ class AppDatabase extends _$AppDatabase {
             ..where((t) => t.date.isBiggerOrEqualValue(from))
             ..where((t) => t.date.isSmallerOrEqualValue(to)))
           .get();
+
+  /// Emits a value whenever any rental or expense row changes.
+  /// Screens can watch this to know when to recompute aggregates.
+  Stream<int> watchChangeCount() {
+    final rentals = selectOnly(rentalsTable)
+      ..addColumns([rentalsTable.id.count()]);
+    final expenses = selectOnly(expensesTable)
+      ..addColumns([expensesTable.id.count()]);
+    return rentals.watch().asyncExpand((_) => expenses.watch().map((_) => DateTime.now().millisecondsSinceEpoch));
+  }
 
   // ── Settings ───────────────────────────────────────────────────────────
 

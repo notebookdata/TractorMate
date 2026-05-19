@@ -7,8 +7,8 @@ import '../../theme/app_theme.dart';
 import '../../utils/currency.dart';
 import 'customer_detail_screen.dart';
 
-final _customersProvider = FutureProvider.family<List<CustomersTableData>, String>(
-  (ref, search) => AppDatabase().getAllCustomers(search: search.isEmpty ? null : search),
+final _customersProvider = StreamProvider.family<List<CustomersTableData>, String>(
+  (ref, search) => AppDatabase().watchAllCustomers(search: search.isEmpty ? null : search),
 );
 
 class CustomersScreen extends ConsumerStatefulWidget {
@@ -89,7 +89,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             : ListView.builder(
                 padding: const EdgeInsets.only(bottom: 100),
                 itemCount: customers.length,
-                itemBuilder: (ctx, i) => _CustomerTile(customer: customers[i], onRefresh: () => ref.invalidate(_customersProvider)),
+                itemBuilder: (ctx, i) => _CustomerTile(customer: customers[i], onRefresh: () {}),
               ),
       ),
     );
@@ -112,7 +112,6 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           ));
           if (mounted) {
             Navigator.pop(context);
-            ref.invalidate(_customersProvider);
           }
         },
       ),
