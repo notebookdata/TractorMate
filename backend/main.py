@@ -43,6 +43,9 @@ app = FastAPI(
     description="Backend for TractorMate — Tractor Rent & Expense Tracker",
     version="1.0.0",
     lifespan=lifespan,
+    # Tell FastAPI it lives at /tractormate-api/ behind the nginx reverse proxy.
+    # This makes Swagger UI load /tractormate-api/openapi.json correctly.
+    root_path="/tractormate-api",
 )
 
 app.add_middleware(
