@@ -83,7 +83,20 @@ class DashboardScreen extends ConsumerWidget {
               icon: const SyncBadge(),
               onPressed: () async {
                 final svc = ref.read(syncServiceProvider);
-                await svc.sync();
+                final ok = await svc.sync();
+                if (!ok && context.mounted) {
+                  final err = ref.read(syncErrorProvider) ?? 'Sync failed';
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(err),
+                    backgroundColor: Colors.red.shade700,
+                    duration: const Duration(seconds: 6),
+                    action: SnackBarAction(
+                      label: 'OK',
+                      textColor: Colors.white,
+                      onPressed: () {},
+                    ),
+                  ));
+                }
               },
               tooltip: 'Sync / ಸಿಂಕ್',
             ),

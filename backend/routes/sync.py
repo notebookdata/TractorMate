@@ -143,13 +143,18 @@ def push(
 
     # Rentals
     for sr in req.rentals:
-        # Validate customer exists (may have been pushed in same batch)
+        # Safely resolve work_type — unknown/custom values fall back to "other"
+        try:
+            wt = WorkType(sr.work_type)
+        except ValueError:
+            wt = WorkType.other
+
         existing = db.query(Rental).filter(Rental.id == sr.id).first()
         if existing:
             if sr.updated_at > existing.updated_at:
                 existing.customer_id = sr.customer_id
                 existing.date = sr.date
-                existing.work_type = WorkType(sr.work_type)
+                existing.work_type = wt
                 existing.rent_amount = sr.rent_amount
                 existing.amount_paid = sr.amount_paid
                 existing.status = _compute_status(sr.rent_amount, sr.amount_paid)
@@ -160,7 +165,7 @@ def push(
         else:
             db.add(Rental(
                 id=sr.id, customer_id=sr.customer_id,
-                date=sr.date, work_type=WorkType(sr.work_type),
+                date=sr.date, work_type=wt,
                 rent_amount=sr.rent_amount, amount_paid=sr.amount_paid,
                 status=_compute_status(sr.rent_amount, sr.amount_paid),
                 notes=sr.notes, driver_name=sr.driver_name,

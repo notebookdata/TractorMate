@@ -9,6 +9,9 @@ enum SyncStatus { synced, pending, error, syncing }
 
 final syncStatusProvider = StateProvider<SyncStatus>((ref) => SyncStatus.synced);
 
+/// Last sync error message — readable by UI for display.
+final syncErrorProvider = StateProvider<String?>((ref) => null);
+
 final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(ref.read(apiServiceProvider), ref);
 });
@@ -37,6 +40,7 @@ class SyncService {
   /// Full sync cycle: push local changes → pull server changes.
   Future<bool> sync() async {
     _ref.read(syncStatusProvider.notifier).state = SyncStatus.syncing;
+    _ref.read(syncErrorProvider.notifier).state = null;
     try {
       await _push();
       await _pull();
@@ -44,9 +48,30 @@ class SyncService {
       _ref.read(syncStatusProvider.notifier).state = SyncStatus.synced;
       return true;
     } catch (e) {
+      final msg = _friendlyError(e.toString());
       _ref.read(syncStatusProvider.notifier).state = SyncStatus.error;
+      _ref.read(syncErrorProvider.notifier).state = msg;
       return false;
     }
+  }
+
+  static String _friendlyError(String raw) {
+    if (raw.contains('SocketException') || raw.contains('Network is unreachable') || raw.contains('Connection refused')) {
+      return 'No internet / server unreachable. Data saved locally.';
+    }
+    if (raw.contains('401') || raw.contains('Unauthorized')) {
+      return 'Session expired. Please log in again.';
+    }
+    if (raw.contains('404')) {
+      return 'Server API not found. Check server URL in Settings.';
+    }
+    if (raw.contains('500') || raw.contains('422')) {
+      return 'Server error. Please deploy latest backend and run migrate_db.py.';
+    }
+    if (raw.contains('TimeoutException') || raw.contains('timed out')) {
+      return 'Connection timed out. Check your internet.';
+    }
+    return 'Sync failed: $raw';
   }
 
   Future<void> _push() async {
