@@ -109,14 +109,23 @@ class _RentalTile extends StatelessWidget {
                 StatusChip(status: rental.status, small: true),
               ],
             ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  '${_workLabels[rental.workType] ?? rental.workType}  •  ${formatDate(rental.date)}',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_workLabels[rental.workType] ?? rental.workType}  •  ${formatDate(rental.date)}',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                    if (rental.driverName != null && rental.driverName!.isNotEmpty)
+                      Row(
+                        children: [
+                          Icon(Icons.person_pin, size: 13, color: Colors.grey.shade500),
+                          const SizedBox(width: 3),
+                          Text(rental.driverName!,
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        ],
+                      ),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 12,

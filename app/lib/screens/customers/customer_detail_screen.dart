@@ -275,8 +275,17 @@ class _RentalTile extends StatelessWidget {
                   _AmountRow(label: 'Due', amount: balance, color: AppTheme.unpaid),
               ],
             ),
+            if (rental.driverName != null && rental.driverName!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                Icon(Icons.person_pin, size: 14, color: AppTheme.primary),
+                const SizedBox(width: 4),
+                Text(rental.driverName!,
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500)),
+              ]),
+            ],
             if (rental.notes != null && rental.notes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(rental.notes!, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
             ],
           ],

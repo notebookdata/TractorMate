@@ -24,11 +24,19 @@ class UserRole(str, enum.Enum):
 
 
 class WorkType(str, enum.Enum):
-    ploughing = "ploughing"
-    sowing = "sowing"
+    double_plough    = "double_plough"
+    rentye           = "rentye"
+    rotavator        = "rotavator"
+    trolley_work     = "trolley_work"
+    cultivators      = "cultivators"
+    maize_thresher   = "maize_thresher"
+    soybean_thresher = "soybean_thresher"
+    # legacy values kept so old records still sync without errors
+    ploughing  = "ploughing"
+    sowing     = "sowing"
     harvesting = "harvesting"
-    levelling = "levelling"
-    other = "other"
+    levelling  = "levelling"
+    other      = "other"
 
 
 class PaymentStatus(str, enum.Enum):
@@ -82,6 +90,7 @@ class Rental(Base):
     amount_paid = Column(Float, default=0.0, nullable=False)
     status = Column(SAEnum(PaymentStatus), default=PaymentStatus.unpaid, nullable=False)
     notes = Column(Text, nullable=True)
+    driver_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True)

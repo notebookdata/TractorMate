@@ -37,6 +37,7 @@ class SyncRental(BaseModel):
     amount_paid: float
     status: str
     notes: Optional[str] = None
+    driver_name: Optional[str] = None
     updated_at: datetime
     deleted_at: Optional[datetime] = None
 
@@ -96,7 +97,7 @@ def _rental_dict(r: Rental) -> dict:
         "date": r.date.isoformat(),
         "work_type": r.work_type.value,
         "rent_amount": r.rent_amount, "amount_paid": r.amount_paid,
-        "status": r.status.value, "notes": r.notes,
+        "status": r.status.value, "notes": r.notes, "driver_name": r.driver_name,
         "created_at": r.created_at.isoformat(),
         "updated_at": r.updated_at.isoformat(),
         "deleted_at": r.deleted_at.isoformat() if r.deleted_at else None,
@@ -153,6 +154,7 @@ def push(
                 existing.amount_paid = sr.amount_paid
                 existing.status = _compute_status(sr.rent_amount, sr.amount_paid)
                 existing.notes = sr.notes
+                existing.driver_name = sr.driver_name
                 existing.updated_at = sr.updated_at
                 existing.deleted_at = sr.deleted_at
         else:
@@ -161,7 +163,8 @@ def push(
                 date=sr.date, work_type=WorkType(sr.work_type),
                 rent_amount=sr.rent_amount, amount_paid=sr.amount_paid,
                 status=_compute_status(sr.rent_amount, sr.amount_paid),
-                notes=sr.notes, updated_at=sr.updated_at, deleted_at=sr.deleted_at,
+                notes=sr.notes, driver_name=sr.driver_name,
+                updated_at=sr.updated_at, deleted_at=sr.deleted_at,
             ))
 
     # Expenses

@@ -31,6 +31,7 @@ class RentalsTable extends Table {
   RealColumn get amountPaid => real().withDefault(const Constant(0.0))();
   TextColumn get status => text().withDefault(const Constant('unpaid'))();
   TextColumn get notes => text().nullable()();
+  TextColumn get driverName => text().nullable()(); // v2
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();
@@ -74,7 +75,16 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase() => _instance;
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (migrator, from, to) async {
+          if (from < 2) {
+            await migrator.addColumn(rentalsTable, rentalsTable.driverName);
+          }
+        },
+      );
 
   // ── Customer queries ───────────────────────────────────────────────────
 

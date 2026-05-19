@@ -479,6 +479,12 @@ class $RentalsTableTable extends RentalsTable
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
       'notes', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _driverNameMeta =
+      const VerificationMeta('driverName');
+  @override
+  late final GeneratedColumn<String> driverName = GeneratedColumn<String>(
+      'driver_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -521,6 +527,7 @@ class $RentalsTableTable extends RentalsTable
         amountPaid,
         status,
         notes,
+        driverName,
         createdAt,
         updatedAt,
         deletedAt,
@@ -583,6 +590,12 @@ class $RentalsTableTable extends RentalsTable
       context.handle(
           _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
     }
+    if (data.containsKey('driver_name')) {
+      context.handle(
+          _driverNameMeta,
+          driverName.isAcceptableOrUnknown(
+              data['driver_name']!, _driverNameMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -624,6 +637,8 @@ class $RentalsTableTable extends RentalsTable
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
       notes: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      driverName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}driver_name']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -651,6 +666,7 @@ class RentalsTableData extends DataClass
   final double amountPaid;
   final String status;
   final String? notes;
+  final String? driverName;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -664,6 +680,7 @@ class RentalsTableData extends DataClass
       required this.amountPaid,
       required this.status,
       this.notes,
+      this.driverName,
       required this.createdAt,
       required this.updatedAt,
       this.deletedAt,
@@ -680,6 +697,9 @@ class RentalsTableData extends DataClass
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || driverName != null) {
+      map['driver_name'] = Variable<String>(driverName);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -701,6 +721,9 @@ class RentalsTableData extends DataClass
       status: Value(status),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      driverName: driverName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(driverName),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
@@ -722,6 +745,7 @@ class RentalsTableData extends DataClass
       amountPaid: serializer.fromJson<double>(json['amountPaid']),
       status: serializer.fromJson<String>(json['status']),
       notes: serializer.fromJson<String?>(json['notes']),
+      driverName: serializer.fromJson<String?>(json['driverName']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -740,6 +764,7 @@ class RentalsTableData extends DataClass
       'amountPaid': serializer.toJson<double>(amountPaid),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
+      'driverName': serializer.toJson<String?>(driverName),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -756,6 +781,7 @@ class RentalsTableData extends DataClass
           double? amountPaid,
           String? status,
           Value<String?> notes = const Value.absent(),
+          Value<String?> driverName = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt,
           Value<DateTime?> deletedAt = const Value.absent(),
@@ -769,6 +795,7 @@ class RentalsTableData extends DataClass
         amountPaid: amountPaid ?? this.amountPaid,
         status: status ?? this.status,
         notes: notes.present ? notes.value : this.notes,
+        driverName: driverName.present ? driverName.value : this.driverName,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -787,6 +814,8 @@ class RentalsTableData extends DataClass
           data.amountPaid.present ? data.amountPaid.value : this.amountPaid,
       status: data.status.present ? data.status.value : this.status,
       notes: data.notes.present ? data.notes.value : this.notes,
+      driverName:
+          data.driverName.present ? data.driverName.value : this.driverName,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -805,6 +834,7 @@ class RentalsTableData extends DataClass
           ..write('amountPaid: $amountPaid, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
+          ..write('driverName: $driverName, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -814,8 +844,20 @@ class RentalsTableData extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(id, customerId, date, workType, rentAmount,
-      amountPaid, status, notes, createdAt, updatedAt, deletedAt, isSynced);
+  int get hashCode => Object.hash(
+      id,
+      customerId,
+      date,
+      workType,
+      rentAmount,
+      amountPaid,
+      status,
+      notes,
+      driverName,
+      createdAt,
+      updatedAt,
+      deletedAt,
+      isSynced);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -828,6 +870,7 @@ class RentalsTableData extends DataClass
           other.amountPaid == this.amountPaid &&
           other.status == this.status &&
           other.notes == this.notes &&
+          other.driverName == this.driverName &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
@@ -843,6 +886,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
   final Value<double> amountPaid;
   final Value<String> status;
   final Value<String?> notes;
+  final Value<String?> driverName;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -857,6 +901,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
     this.amountPaid = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
+    this.driverName = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -872,6 +917,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
     this.amountPaid = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
+    this.driverName = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -891,6 +937,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
     Expression<double>? amountPaid,
     Expression<String>? status,
     Expression<String>? notes,
+    Expression<String>? driverName,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -906,6 +953,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
       if (amountPaid != null) 'amount_paid': amountPaid,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
+      if (driverName != null) 'driver_name': driverName,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -923,6 +971,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
       Value<double>? amountPaid,
       Value<String>? status,
       Value<String?>? notes,
+      Value<String?>? driverName,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<DateTime?>? deletedAt,
@@ -937,6 +986,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
       amountPaid: amountPaid ?? this.amountPaid,
       status: status ?? this.status,
       notes: notes ?? this.notes,
+      driverName: driverName ?? this.driverName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -972,6 +1022,9 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (driverName.present) {
+      map['driver_name'] = Variable<String>(driverName.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1001,6 +1054,7 @@ class RentalsTableCompanion extends UpdateCompanion<RentalsTableData> {
           ..write('amountPaid: $amountPaid, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
+          ..write('driverName: $driverName, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -2041,6 +2095,7 @@ typedef $$RentalsTableTableCreateCompanionBuilder = RentalsTableCompanion
   Value<double> amountPaid,
   Value<String> status,
   Value<String?> notes,
+  Value<String?> driverName,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<DateTime?> deletedAt,
@@ -2057,6 +2112,7 @@ typedef $$RentalsTableTableUpdateCompanionBuilder = RentalsTableCompanion
   Value<double> amountPaid,
   Value<String> status,
   Value<String?> notes,
+  Value<String?> driverName,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<DateTime?> deletedAt,
@@ -2113,6 +2169,9 @@ class $$RentalsTableTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get driverName => $composableBuilder(
+      column: $table.driverName, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -2177,6 +2236,9 @@ class $$RentalsTableTableOrderingComposer
   ColumnOrderings<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get driverName => $composableBuilder(
+      column: $table.driverName, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -2239,6 +2301,9 @@ class $$RentalsTableTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get driverName => $composableBuilder(
+      column: $table.driverName, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -2304,6 +2369,7 @@ class $$RentalsTableTableTableManager extends RootTableManager<
             Value<double> amountPaid = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
+            Value<String?> driverName = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<DateTime?> deletedAt = const Value.absent(),
@@ -2319,6 +2385,7 @@ class $$RentalsTableTableTableManager extends RootTableManager<
             amountPaid: amountPaid,
             status: status,
             notes: notes,
+            driverName: driverName,
             createdAt: createdAt,
             updatedAt: updatedAt,
             deletedAt: deletedAt,
@@ -2334,6 +2401,7 @@ class $$RentalsTableTableTableManager extends RootTableManager<
             Value<double> amountPaid = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<String?> notes = const Value.absent(),
+            Value<String?> driverName = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<DateTime?> deletedAt = const Value.absent(),
@@ -2349,6 +2417,7 @@ class $$RentalsTableTableTableManager extends RootTableManager<
             amountPaid: amountPaid,
             status: status,
             notes: notes,
+            driverName: driverName,
             createdAt: createdAt,
             updatedAt: updatedAt,
             deletedAt: deletedAt,

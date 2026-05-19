@@ -77,6 +77,7 @@ class SyncService {
                 'amount_paid': r.amountPaid,
                 'status': r.status,
                 'notes': r.notes,
+                'driver_name': r.driverName,
                 'updated_at': r.updatedAt.toIso8601String(),
                 'deleted_at': r.deletedAt?.toIso8601String(),
               })
@@ -126,6 +127,7 @@ class SyncService {
         amountPaid: Value((r['amount_paid'] as num).toDouble()),
         status: Value(r['status']),
         notes: Value(r['notes']),
+        driverName: Value(r['driver_name']),
         updatedAt: Value(DateTime.parse(r['updated_at'])),
         deletedAt: Value(r['deleted_at'] != null ? DateTime.parse(r['deleted_at']) : null),
         isSynced: const Value(true),

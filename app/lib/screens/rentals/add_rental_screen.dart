@@ -1,29 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/app_database.dart';
 import '../../models/rental.dart';
+import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/currency.dart';
 
 const _prefKeyCustomTypes = 'custom_work_types';
 
-class AddRentalScreen extends StatefulWidget {
+class AddRentalScreen extends ConsumerStatefulWidget {
   final RentalsTableData? editRental;
   final String? preselectedCustomerId;
 
   const AddRentalScreen({super.key, this.editRental, this.preselectedCustomerId});
 
   @override
-  State<AddRentalScreen> createState() => _AddRentalScreenState();
+  ConsumerState<AddRentalScreen> createState() => _AddRentalScreenState();
 }
 
-class _AddRentalScreenState extends State<AddRentalScreen> {
+class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
   final _formKey = GlobalKey<FormState>();
   final _rentCtrl = TextEditingController();
   final _paidCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  final _driverCtrl = TextEditingController();
 
   String? _customerId;
   String? _customerName;
@@ -44,14 +47,23 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
       final r = widget.editRental!;
       _customerId = r.customerId;
       _date = r.date;
-      // Keep whatever value is stored (including legacy types)
       _workType = r.workType;
       _rentCtrl.text = r.rentAmount.toStringAsFixed(0);
       _paidCtrl.text = r.amountPaid.toStringAsFixed(0);
       _notesCtrl.text = r.notes ?? '';
+      _driverCtrl.text = r.driverName ?? '';
     }
     if (widget.preselectedCustomerId != null) {
       _customerId = widget.preselectedCustomerId;
+    }
+    // Auto-fill driver from logged-in user when adding new rental
+    if (widget.editRental == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final username = ref.read(authProvider).username;
+        if (username != null && _driverCtrl.text.isEmpty) {
+          _driverCtrl.text = username;
+        }
+      });
     }
   }
 
@@ -149,6 +161,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
     _rentCtrl.dispose();
     _paidCtrl.dispose();
     _notesCtrl.dispose();
+    _driverCtrl.dispose();
     super.dispose();
   }
 
@@ -177,6 +190,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
       amountPaid: Value(_amountPaid),
       status: Value(_status),
       notes: Value(_notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim()),
+      driverName: Value(_driverCtrl.text.trim().isEmpty ? null : _driverCtrl.text.trim()),
       updatedAt: Value(DateTime.now()),
       isSynced: const Value(false),
     ));
@@ -294,6 +308,31 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                     setState(() => _workType = v);
                   }
                 },
+              ),
+              const SizedBox(height: 16),
+
+              const SizedBox(height: 16),
+
+              // Driver / operator name
+              Text('Driver / ಚಾಲಕ', style: _labelStyle),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _driverCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Driver name / ಚಾಲಕರ ಹೆಸರು',
+                  prefixIcon: const Icon(Icons.person_pin, color: AppTheme.primary),
+                  suffixIcon: ref.watch(authProvider).username != null
+                      ? Tooltip(
+                          message: 'Use logged-in user',
+                          child: IconButton(
+                            icon: const Icon(Icons.account_circle_outlined, color: AppTheme.primary),
+                            onPressed: () => setState(() =>
+                                _driverCtrl.text = ref.read(authProvider).username ?? ''),
+                          ),
+                        )
+                      : null,
+                ),
+                textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 16),
 
