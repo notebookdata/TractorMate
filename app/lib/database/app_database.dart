@@ -221,4 +221,4 @@ class AppDatabase extends _$AppDatabase {
 }
 
 // Resolved at compile-time: native.dart on mobile, web.dart on browser
-DatabaseConnection _openConnection() => openConnection();
+QueryExecutor _openConnection() => openConnection();
