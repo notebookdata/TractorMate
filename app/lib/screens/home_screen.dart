@@ -4,7 +4,6 @@ import 'dashboard/dashboard_screen.dart';
 import 'customers/customers_screen.dart';
 import 'rentals/rentals_screen.dart';
 import 'expenses/expenses_screen.dart';
-import 'analytics/analytics_screen.dart';
 import 'settings/settings_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -22,7 +21,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     CustomersScreen(),
     RentalsScreen(),
     ExpensesScreen(),
-    AnalyticsScreen(),
     SettingsScreen(),
   ];
 
@@ -36,8 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        // Only show label on the selected tab — prevents wrapping on narrow screens
-        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
@@ -58,11 +55,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Expenses',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Analytics',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

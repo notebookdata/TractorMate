@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../theme/app_theme.dart';
 import '../reports/reports_screen.dart';
+import '../analytics/analytics_screen.dart';
 
 const _keyLanguage = 'app_language';
 
@@ -238,18 +239,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Reports
-          _SectionHeader('Reports / ವರದಿಗಳು'),
+          // Analytics & Reports
+          _SectionHeader('Analytics & Reports / ವಿಶ್ಲೇಷಣೆ ಮತ್ತು ವರದಿ'),
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: AppTheme.primary),
-              title: const Text('Generate Reports', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: const Text('PDF • ಹಂಚಿಕೊಳ್ಳಿ • Print'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReportsScreen()),
-              ),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.bar_chart, color: AppTheme.primary),
+                  title: const Text('Analytics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Charts • ಗ್ರಾಫ್ • ವಿಶ್ಲೇಷಣೆ'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                  ),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: const Icon(Icons.picture_as_pdf, color: AppTheme.primary),
+                  title: const Text('Generate Reports', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('PDF • ಹಂಚಿಕೊಳ್ಳಿ • Print'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ReportsScreen()),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
