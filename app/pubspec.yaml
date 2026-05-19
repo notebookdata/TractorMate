@@ -28,7 +28,7 @@ dependencies:
 
   # Connectivity & Background sync
   connectivity_plus: ^6.1.4
-  workmanager: ^0.5.2
+  workmanager: ^0.9.0
 
   # Charts
   fl_chart: ^0.70.2

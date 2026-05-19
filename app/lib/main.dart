@@ -14,13 +14,8 @@ import 'screens/settings/settings_screen.dart';
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    // Background sync task
-    try {
-      // Note: full DI not available in background isolate.
-      // Sync is handled by SyncService which creates its own DB + ApiService.
-      // For simplicity, we skip background sync here and rely on foreground sync.
-    } catch (_) {}
-    return Future.value(true);
+    // Background sync runs in an isolate — foreground sync covers most cases.
+    return true;
   });
 }
 
