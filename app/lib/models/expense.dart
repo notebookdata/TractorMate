@@ -51,3 +51,12 @@ const expenseCategories = [
   'insurance',
   'other',
 ];
+
+const Map<String, String> expenseCategoryLabels = {
+  'diesel': 'Diesel / ಡೀಸೆಲ್',
+  'repairs': 'Repairs / ದುರಸ್ತಿ',
+  'maintenance': 'Maintenance / ನಿರ್ವಹಣೆ',
+  'spare_parts': 'Spare Parts / ಬಿಡಿಭಾಗಗಳು',
+  'insurance': 'Insurance / ವಿಮೆ',
+  'other': 'Other / ಇತರೆ',
+};

@@ -35,9 +35,9 @@ bash /home/ubuntu/tractormate/scripts/setup.sh
 - Sets up daily SQLite backup at 2 AM
 
 ### API
-- Public URL: `http://144.24.131.165/tractormate-api`
-- API docs: `http://144.24.131.165/tractormate-api/docs`
-- Default login: `admin` / `TractorMate@2024` (**change this immediately**)
+- Public URL: `http://YOUR_SERVER_IP/tractormate-api`
+- API docs: `http://YOUR_SERVER_IP/tractormate-api/docs`
+- Default login: `admin` / `YOUR_SECURE_PASSWORD` (**configured in backend/.env**)
 
 ## Flutter App Build
 
@@ -90,13 +90,13 @@ WorkManager sync    ──── HTTPS ───→  nginx proxy
 | Field     | Value               |
 |-----------|---------------------|
 | Username  | admin               |
-| Password  | TractorMate@2024    |
+| Password  | Set during deployment |
 
-**Change the admin password after first login!**
+**Important:** The admin password is automatically generated during backend deployment. Check your backend logs or `.env` file for the actual password.
 
-To create more users, use the API:
+To create more users, use the web admin panel (Settings > User Management) or the API:
 ```bash
-curl -X POST http://144.24.131.165/tractormate-api/auth/users \
+curl -X POST http://YOUR_SERVER_IP/tractormate-api/auth/users \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"username": "user2", "password": "SecurePass123", "role": "user"}'
@@ -106,20 +106,18 @@ curl -X POST http://144.24.131.165/tractormate-api/auth/users \
 
 ### Check backend status
 ```bash
-ssh ubuntu@144.24.131.165 "sudo systemctl status tractormate"
+ssh user@YOUR_SERVER_IP "sudo systemctl status tractormate"
 ```
 
 ### View logs
 ```bash
-ssh ubuntu@144.24.131.165 "sudo journalctl -u tractormate -n 50"
+ssh user@YOUR_SERVER_IP "sudo journalctl -u tractormate -n 50"
 ```
 
 ### Manual backup
 ```bash
-ssh ubuntu@144.24.131.165 "bash /home/ubuntu/tractormate/scripts/backup.sh"
+ssh user@YOUR_SERVER_IP "bash /home/ubuntu/tractormate/scripts/backup.sh"
 ```
 
 ### Re-deploy backend after changes
-```bash
-bash backend/scripts/deploy.sh
-```
+See `DEPLOYMENT.md` for detailed deployment instructions.

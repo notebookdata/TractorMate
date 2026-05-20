@@ -8,6 +8,9 @@ import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
 import '../../models/rental.dart';
 import '../rentals/add_rental_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 
 class CustomerDetailScreen extends ConsumerStatefulWidget {
   final String customerId;
@@ -46,8 +49,50 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     });
   }
 
+  Future<void> _deleteCustomer() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Customer / ಗ್ರಾಹಕರನ್ನು ಅಳಿಸಿ'),
+        content: Text(
+          'Are you sure you want to delete ${widget.customerName}? This will also delete all associated rentals.\n\nನೀವು ${widget.customerName} ಅನ್ನು ಅಳಿಸಲು ಖಚಿತವಾಗಿದ್ದೀರಾ? ಇದು ಎಲ್ಲಾ ಸಂಬಂಧಿತ ಬಾಡಿಗೆಗಳನ್ನು ಸಹ ಅಳಿಸುತ್ತದೆ.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel / ರದ್ದುಮಾಡಿ'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete / ಅಳಿಸಿ'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ref.read(apiServiceProvider).deleteCustomer(widget.customerId);
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Customer deleted successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting customer: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
     final totalRent = _rentals.fold(0.0, (s, r) => s + r.rentAmount);
     final totalPaid = _rentals.fold(0.0, (s, r) => s + r.amountPaid);
     final balance = totalRent - totalPaid;
@@ -60,6 +105,11 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             icon: const Icon(Icons.edit),
             onPressed: _editCustomer,
           ),
+          if (kIsWeb && authState.role == 'admin')
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: _deleteCustomer,
+            ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -189,6 +239,30 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         initial: _customer!,
         onSave: (name, phone, notes) async {
           final db = AppDatabase();
+          
+          // Check for duplicate name (excluding current customer)
+          final existing = await db.getAllCustomers();
+          if (existing.any((c) => 
+              c.id != _customer!.id && 
+              c.name.toLowerCase() == name.toLowerCase())) {
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Duplicate Customer / ನಕಲಿ ಗ್ರಾಹಕ'),
+                  content: Text('Customer "$name" already exists!\n\nಗ್ರಾಹಕ "$name" ಈಗಾಗಲೇ ಅಸ್ತಿತ್ವದಲ್ಲಿದೆ!'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return;
+          }
+          
           await db.upsertCustomer(CustomersTableCompanion(
             id: drift.Value(_customer!.id),
             name: drift.Value(name),
@@ -282,6 +356,18 @@ class _RentalTile extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(rental.driverName!,
                     style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500)),
+              ]),
+            ],
+            if (rental.paymentDate != null) ...[
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.event_available, size: 14, color: Colors.green.shade600),
+                const SizedBox(width: 4),
+                Text('Paid on ${formatDate(rental.paymentDate!)}',
+                    style: TextStyle(
+                        color: Colors.green.shade600,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500)),
               ]),
             ],
             if (rental.notes != null && rental.notes!.isNotEmpty) ...[

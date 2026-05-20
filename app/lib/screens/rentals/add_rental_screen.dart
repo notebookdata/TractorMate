@@ -27,6 +27,7 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
   String? _customerId;
   String? _customerName;
   DateTime _date = DateTime.now();
+  DateTime? _paymentDate;
   String _workType = 'double_plough';
   bool _saving = false;
 
@@ -44,6 +45,7 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
       _rentCtrl.text = r.rentAmount.toStringAsFixed(0);
       _paidCtrl.text = r.amountPaid.toStringAsFixed(0);
       _notesCtrl.text = r.notes ?? '';
+      _paymentDate = r.paymentDate;
     }
     if (widget.preselectedCustomerId != null) {
       _customerId = widget.preselectedCustomerId;
@@ -99,6 +101,7 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
       status: Value(_status),
       notes: Value(_notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim()),
       driverName: Value(ref.read(authProvider).username),
+      paymentDate: Value(_amountPaid > 0 ? (_paymentDate ?? DateTime.now()) : null),
       updatedAt: Value(DateTime.now()),
       isSynced: const Value(false),
     ));
@@ -258,6 +261,49 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
               ),
               const SizedBox(height: 12),
 
+              // Payment date — shown only when amount paid > 0
+              if (_amountPaid > 0) ...[
+                Text('Payment Date / ಪಾವತಿ ದಿನಾಂಕ', style: _labelStyle),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: _pickPaymentDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.6)),
+                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.primary.withValues(alpha: 0.04),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.event_available, color: AppTheme.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _paymentDate != null
+                                ? formatDate(_paymentDate!)
+                                : 'Select payment date / ದಿನಾಂಕ ಆಯ್ಕೆ ಮಾಡಿ',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: _paymentDate == null
+                                  ? Colors.grey.shade500
+                                  : Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: Colors.grey.shade500),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'When did the customer pay? / ಗ್ರಾಹಕರು ಯಾವಾಗ ಪಾವತಿ ಮಾಡಿದರು?',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+                const SizedBox(height: 8),
+              ],
+
               // Live status preview
               if (_rentCtrl.text.isNotEmpty)
                 Container(
@@ -346,6 +392,17 @@ class _AddRentalScreenState extends ConsumerState<AddRentalScreen> {
       lastDate: DateTime.now().add(const Duration(days: 30)),
     );
     if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _pickPaymentDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _paymentDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      helpText: 'Payment Date / ಪಾವತಿ ದಿನಾಂಕ',
+    );
+    if (picked != null) setState(() => _paymentDate = picked);
   }
 
   TextStyle get _labelStyle => const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87);

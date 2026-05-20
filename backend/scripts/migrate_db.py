@@ -21,7 +21,11 @@ def main():
     cur = conn.cursor()
 
     migrations = [
-        ("rentals",  "driver_name", "ALTER TABLE rentals ADD COLUMN driver_name TEXT"),
+        ("rentals",  "driver_name",   "ALTER TABLE rentals ADD COLUMN driver_name TEXT"),
+        ("rentals",  "payment_date",  "ALTER TABLE rentals ADD COLUMN payment_date DATETIME"),
+        ("expenses", "driver_name",   "ALTER TABLE expenses ADD COLUMN driver_name TEXT"),
+        ("expenses", "amount_paid",   "ALTER TABLE expenses ADD COLUMN amount_paid REAL DEFAULT 0.0"),
+        ("expenses", "payment_date",  "ALTER TABLE expenses ADD COLUMN payment_date DATETIME"),
     ]
 
     for table, col, sql in migrations:

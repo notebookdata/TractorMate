@@ -131,14 +131,22 @@ class _RentalTile extends StatelessWidget {
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                     ),
                     if (rental.driverName != null && rental.driverName!.isNotEmpty)
-                      Row(
-                        children: [
-                          Icon(Icons.person_pin, size: 13, color: Colors.grey.shade500),
-                          const SizedBox(width: 3),
-                          Text(rental.driverName!,
-                              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                        ],
-                      ),
+                      Row(children: [
+                        Icon(Icons.person_pin, size: 13, color: Colors.grey.shade500),
+                        const SizedBox(width: 3),
+                        Text(rental.driverName!,
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                      ]),
+                    if (rental.paymentDate != null)
+                      Row(children: [
+                        Icon(Icons.event_available, size: 13, color: Colors.green.shade600),
+                        const SizedBox(width: 3),
+                        Text('Paid on ${formatDate(rental.paymentDate!)}',
+                            style: TextStyle(
+                                color: Colors.green.shade600,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500)),
+                      ]),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 12,

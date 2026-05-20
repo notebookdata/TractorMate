@@ -91,6 +91,7 @@ class Rental(Base):
     status = Column(SAEnum(PaymentStatus), default=PaymentStatus.unpaid, nullable=False)
     notes = Column(Text, nullable=True)
     driver_name = Column(String, nullable=True)
+    payment_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True)
@@ -110,6 +111,38 @@ class Expense(Base):
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True)
+
+
+class Driver(Base):
+    __tablename__ = "drivers"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False, index=True)
+    phone = Column(String, nullable=True)
+    daily_salary = Column(Float, default=0.0, nullable=False)  # Default salary per day
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+    attendances = relationship("DriverAttendance", back_populates="driver")
+
+
+class DriverAttendance(Base):
+    __tablename__ = "driver_attendances"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    driver_id = Column(String, ForeignKey("drivers.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False)
+    salary_amount = Column(Float, nullable=False)  # Salary for this day
+    amount_paid = Column(Float, default=0.0, nullable=False)
+    payment_date = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+    driver = relationship("Driver", back_populates="attendances")
 
 
 class RefreshToken(Base):

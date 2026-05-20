@@ -43,8 +43,9 @@ class SyncService {
     _ref.read(syncErrorProvider.notifier).state = null;
     try {
       await _push();
-      await _pull();
-      await _setLastSync(DateTime.now());
+      final serverTime = await _pull();
+      // Use server time if available, otherwise fall back to local time
+      await _setLastSync(serverTime ?? DateTime.now());
       _ref.read(syncStatusProvider.notifier).state = SyncStatus.synced;
       return true;
     } catch (e) {
@@ -78,8 +79,11 @@ class SyncService {
     final customers = await _db.getUnsyncedCustomers();
     final rentals = await _db.getUnsyncedRentals();
     final expenses = await _db.getUnsyncedExpenses();
+    final drivers = await _db.getUnsyncedDrivers();
+    final driverAttendances = await _db.getUnsyncedDriverAttendances();
 
-    if (customers.isEmpty && rentals.isEmpty && expenses.isEmpty) return;
+    if (customers.isEmpty && rentals.isEmpty && expenses.isEmpty && 
+        drivers.isEmpty && driverAttendances.isEmpty) return;
 
     await _api.pushSync({
       'customers': customers
@@ -103,6 +107,7 @@ class SyncService {
                 'status': r.status,
                 'notes': r.notes,
                 'driver_name': r.driverName,
+                'payment_date': r.paymentDate?.toIso8601String(),
                 'updated_at': r.updatedAt.toIso8601String(),
                 'deleted_at': r.deletedAt?.toIso8601String(),
               })
@@ -118,17 +123,48 @@ class SyncService {
                 'deleted_at': e.deletedAt?.toIso8601String(),
               })
           .toList(),
+      'drivers': drivers
+          .map((d) => {
+                'id': d.id,
+                'name': d.name,
+                'phone': d.phone,
+                'daily_salary': d.dailySalary,
+                'notes': d.notes,
+                'updated_at': d.updatedAt.toIso8601String(),
+                'deleted_at': d.deletedAt?.toIso8601String(),
+              })
+          .toList(),
+      'driver_attendances': driverAttendances
+          .map((da) => {
+                'id': da.id,
+                'driver_id': da.driverId,
+                'date': da.date.toIso8601String(),
+                'salary_amount': da.salaryAmount,
+                'amount_paid': da.amountPaid,
+                'payment_date': da.paymentDate?.toIso8601String(),
+                'notes': da.notes,
+                'updated_at': da.updatedAt.toIso8601String(),
+                'deleted_at': da.deletedAt?.toIso8601String(),
+              })
+          .toList(),
     });
 
     // Mark all as synced
     for (final c in customers) await _db.markCustomerSynced(c.id);
     for (final r in rentals) await _db.markRentalSynced(r.id);
     for (final e in expenses) await _db.markExpenseSynced(e.id);
+    for (final d in drivers) await _db.markDriverSynced(d.id);
+    for (final da in driverAttendances) await _db.markDriverAttendanceSynced(da.id);
   }
 
-  Future<void> _pull() async {
+  Future<DateTime?> _pull() async {
     final lastSync = await _getLastSync();
     final data = await _api.pullSync(since: lastSync);
+
+    // Extract server_time from response
+    final serverTime = data['server_time'] != null
+        ? DateTime.tryParse(data['server_time'])
+        : null;
 
     for (final c in (data['customers'] as List)) {
       await _db.upsertCustomer(CustomersTableCompanion(
@@ -153,6 +189,9 @@ class SyncService {
         status: Value(r['status']),
         notes: Value(r['notes']),
         driverName: Value(r['driver_name']),
+        paymentDate: Value(r['payment_date'] != null
+            ? DateTime.tryParse(r['payment_date'])
+            : null),
         updatedAt: Value(DateTime.parse(r['updated_at'])),
         deletedAt: Value(r['deleted_at'] != null ? DateTime.parse(r['deleted_at']) : null),
         isSynced: const Value(true),
@@ -171,12 +210,46 @@ class SyncService {
         isSynced: const Value(true),
       ));
     }
+
+    for (final d in (data['drivers'] as List)) {
+      await _db.upsertDriver(DriversTableCompanion(
+        id: Value(d['id']),
+        name: Value(d['name']),
+        phone: Value(d['phone']),
+        dailySalary: Value((d['daily_salary'] as num).toDouble()),
+        notes: Value(d['notes']),
+        updatedAt: Value(DateTime.parse(d['updated_at'])),
+        deletedAt: Value(d['deleted_at'] != null ? DateTime.parse(d['deleted_at']) : null),
+        isSynced: const Value(true),
+      ));
+    }
+
+    for (final da in (data['driver_attendances'] as List)) {
+      await _db.upsertDriverAttendance(DriverAttendancesTableCompanion(
+        id: Value(da['id']),
+        driverId: Value(da['driver_id']),
+        date: Value(DateTime.parse(da['date'])),
+        salaryAmount: Value((da['salary_amount'] as num).toDouble()),
+        amountPaid: Value((da['amount_paid'] as num).toDouble()),
+        paymentDate: Value(da['payment_date'] != null
+            ? DateTime.tryParse(da['payment_date'])
+            : null),
+        notes: Value(da['notes']),
+        updatedAt: Value(DateTime.parse(da['updated_at'])),
+        deletedAt: Value(da['deleted_at'] != null ? DateTime.parse(da['deleted_at']) : null),
+        isSynced: const Value(true),
+      ));
+    }
+
+    return serverTime;
   }
 
   Future<bool> hasPendingChanges() async {
     final c = await _db.getUnsyncedCustomers();
     final r = await _db.getUnsyncedRentals();
     final e = await _db.getUnsyncedExpenses();
-    return c.isNotEmpty || r.isNotEmpty || e.isNotEmpty;
+    final d = await _db.getUnsyncedDrivers();
+    final da = await _db.getUnsyncedDriverAttendances();
+    return c.isNotEmpty || r.isNotEmpty || e.isNotEmpty || d.isNotEmpty || da.isNotEmpty;
   }
 }

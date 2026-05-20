@@ -1,0 +1,128 @@
+# ===================================
+# TractorMate - Sensitive & Build Files
+# ===================================
+
+# Deployment scripts with credentials
+deploy_*.sh
+backend/scripts/deploy.sh
+backend/scripts/setup.sh
+
+# SSH keys & certificates
+*.key
+*.pem
+*.crt
+*.cert
+id_rsa*
+ssh-key-*
+
+# Environment & secrets
+.env
+.env.*
+*.secret
+secrets/
+credentials/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+tractormate.db*
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# ===================================
+# Flutter / Dart
+# ===================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.g.dart
+*.freezed.dart
+
+# Flutter/Dart pub
+pubspec.lock
+
+# iOS
+app/ios/Flutter/flutter_export_environment.sh
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/App.framework
+app/ios/Flutter/Flutter.framework
+app/ios/Flutter/Flutter.podspec
+app/ios/ServiceDefinitions.json
+app/ios/Runner/GeneratedPluginRegistrant.*
+app/ios/*.ipa
+app/ios/*.dSYM.zip
+app/ios/*.dSYM
+
+# Android
+app/android/app/debug
+app/android/app/profile
+app/android/app/release
+app/android/.gradle/
+app/android/captures/
+app/android/local.properties
+app/android/app/*.jks
+app/android/app/*.keystore
+app/android/key.properties
+*.apk
+*.aab
+
+# Web build
+app/build/web/
+
+# ===================================
+# Python / Backend
+# ===================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv
+
+# FastAPI / uvicorn
+*.pid
+uvicorn.log
+
+# Uploads & backups
+uploads/
+backups/
+/var/backups/tractormate/
+
+# ===================================
+# IDEs & Editors
+# ===================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===================================
+# OS & System
+# ===================================
+Thumbs.db
+desktop.ini
+.directory
+
+# ===================================
+# Temp & Cache
+# ===================================
+tmp/
+temp/
+cache/
+*.tmp
+*.bak
+*.cache

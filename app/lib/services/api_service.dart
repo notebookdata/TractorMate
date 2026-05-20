@@ -2,8 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-const _defaultBaseUrl = 'http://144.24.131.165/tractormate-api';
+// TODO: Update this URL to your server's IP/domain before deployment
+const _defaultBaseUrl = 'http://YOUR_SERVER_IP/tractormate-api';
 const _keyBaseUrl = 'server_url';
 const _keyAccessToken = 'access_token';
 const _keyRefreshToken = 'refresh_token';
@@ -18,6 +20,34 @@ class ApiService {
   final _storage = const FlutterSecureStorage();
   late Dio _dio;
   bool _initialized = false;
+  
+  // Web fallback storage
+  Future<void> _writeToken(String key, String value) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, value);
+    } else {
+      await _storage.write(key: key, value: value);
+    }
+  }
+  
+  Future<String?> _readToken(String key) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(key);
+    } else {
+      return await _storage.read(key: key);
+    }
+  }
+  
+  Future<void> _deleteToken(String key) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+    } else {
+      await _storage.delete(key: key);
+    }
+  }
 
   Future<void> init() async {
     if (_initialized) return;
@@ -37,7 +67,7 @@ class ApiService {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: _keyAccessToken);
+        final token = await _readToken(_keyAccessToken);
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
@@ -48,7 +78,7 @@ class ApiService {
           // Try to refresh token
           final refreshed = await _refreshToken();
           if (refreshed) {
-            final token = await _storage.read(key: _keyAccessToken);
+            final token = await _readToken(_keyAccessToken);
             error.requestOptions.headers['Authorization'] = 'Bearer $token';
             final response = await _dio.fetch(error.requestOptions);
             return handler.resolve(response);
@@ -61,14 +91,14 @@ class ApiService {
 
   Future<bool> _refreshToken() async {
     try {
-      final refreshToken = await _storage.read(key: _keyRefreshToken);
+      final refreshToken = await _readToken(_keyRefreshToken);
       if (refreshToken == null) return false;
       final resp = await Dio().post(
         '${_dio.options.baseUrl}/auth/refresh',
         data: {'refresh_token': refreshToken},
       );
-      await _storage.write(key: _keyAccessToken, value: resp.data['access_token']);
-      await _storage.write(key: _keyRefreshToken, value: resp.data['refresh_token']);
+      await _writeToken(_keyAccessToken, resp.data['access_token']);
+      await _writeToken(_keyRefreshToken, resp.data['refresh_token']);
       return true;
     } catch (_) {
       return false;
@@ -94,25 +124,58 @@ class ApiService {
       'username': username,
       'password': password,
     });
-    await _storage.write(key: _keyAccessToken, value: resp.data['access_token']);
-    await _storage.write(key: _keyRefreshToken, value: resp.data['refresh_token']);
+    await _writeToken(_keyAccessToken, resp.data['access_token']);
+    await _writeToken(_keyRefreshToken, resp.data['refresh_token']);
     return resp.data;
   }
 
   Future<void> logout() async {
     try {
-      final refreshToken = await _storage.read(key: _keyRefreshToken);
+      final refreshToken = await _readToken(_keyRefreshToken);
       if (refreshToken != null) {
         await _dio.post('/auth/logout', data: {'refresh_token': refreshToken});
       }
     } catch (_) {}
-    await _storage.delete(key: _keyAccessToken);
-    await _storage.delete(key: _keyRefreshToken);
+    await _deleteToken(_keyAccessToken);
+    await _deleteToken(_keyRefreshToken);
   }
 
   Future<bool> isLoggedIn() async {
-    final token = await _storage.read(key: _keyAccessToken);
+    final token = await _readToken(_keyAccessToken);
     return token != null;
+  }
+
+  // ── Users (Admin only) ────────────────────────────────────────────────
+
+  Future<List<dynamic>> getUsers() async {
+    await init();
+    final resp = await _dio.get('/auth/users');
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> createUser(Map<String, dynamic> data) async {
+    await init();
+    final resp = await _dio.post('/auth/users', data: data);
+    return resp.data;
+  }
+
+  Future<Map<String, dynamic>> updateUser(String id, Map<String, dynamic> data) async {
+    await init();
+    final resp = await _dio.put('/auth/users/$id', data: data);
+    return resp.data;
+  }
+
+  Future<void> deleteUser(String id) async {
+    await init();
+    await _dio.delete('/auth/users/$id');
+  }
+
+  // ── Admin ─────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> resetAllData() async {
+    await init();
+    final resp = await _dio.delete('/admin/reset-data');
+    return resp.data;
   }
 
   // ── Customers ─────────────────────────────────────────────────────────
@@ -133,6 +196,11 @@ class ApiService {
     await init();
     final resp = await _dio.put('/customers/$id', data: data);
     return resp.data;
+  }
+
+  Future<void> deleteCustomer(String id) async {
+    await init();
+    await _dio.delete('/customers/$id');
   }
 
   Future<Map<String, dynamic>> getCustomerAnalytics(String id) async {

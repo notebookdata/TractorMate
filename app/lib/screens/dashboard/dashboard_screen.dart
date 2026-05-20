@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/stat_card.dart';
 import '../../widgets/sync_badge.dart';
 import '../../services/sync_service.dart';
+import '../../services/auth_service.dart';
 
 Future<Map<String, double>> _computeDashboard() async {
   final db = AppDatabase();
@@ -65,6 +66,8 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(_dashboardProvider);
+    final authState = ref.watch(authProvider);
+    final isAdmin = authState.role == 'admin';
     ref.watch(syncStatusProvider);
 
     return Scaffold(
@@ -112,27 +115,30 @@ class DashboardScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text('Earnings / ಗಳಿಕೆ',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
-              ),
-              Row(
-                children: [
-                  Expanded(child: StatCard(label: 'Today', labelKn: 'ಇಂದು', amount: d['today']!, icon: Icons.today, color: AppTheme.primary)),
-                  const SizedBox(width: 8),
-                  Expanded(child: StatCard(label: 'This Week', labelKn: 'ಈ ವಾರ', amount: d['week']!, icon: Icons.date_range, color: Colors.teal)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: StatCard(label: 'This Month', labelKn: 'ಈ ತಿಂಗಳು', amount: d['month']!, icon: Icons.calendar_month, color: Colors.indigo)),
-                  const SizedBox(width: 8),
-                  Expanded(child: StatCard(label: 'This Year', labelKn: 'ಈ ವರ್ಷ', amount: d['year']!, icon: Icons.bar_chart, color: Colors.deepPurple)),
-                ],
-              ),
-              const SizedBox(height: 20),
+              // Earnings section - Admin only
+              if (isAdmin) ...[
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text('Earnings / ಗಳಿಕೆ',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
+                ),
+                Row(
+                  children: [
+                    Expanded(child: StatCard(label: 'Today', labelKn: 'ಇಂದು', amount: d['today']!, icon: Icons.today, color: AppTheme.primary)),
+                    const SizedBox(width: 8),
+                    Expanded(child: StatCard(label: 'This Week', labelKn: 'ಈ ವಾರ', amount: d['week']!, icon: Icons.date_range, color: Colors.teal)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: StatCard(label: 'This Month', labelKn: 'ಈ ತಿಂಗಳು', amount: d['month']!, icon: Icons.calendar_month, color: Colors.indigo)),
+                    const SizedBox(width: 8),
+                    Expanded(child: StatCard(label: 'This Year', labelKn: 'ಈ ವರ್ಷ', amount: d['year']!, icon: Icons.bar_chart, color: Colors.deepPurple)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 8),
                 child: Text('Summary / ಸಾರಾಂಶ',
@@ -153,14 +159,17 @@ class DashboardScreen extends ConsumerWidget {
                 icon: Icons.money_off,
                 color: AppTheme.partial,
               ),
-              const SizedBox(height: 8),
-              StatCard(
-                label: 'This Month Net Profit',
-                labelKn: 'ಈ ತಿಂಗಳ ನಿವ್ವಳ ಲಾಭ',
-                amount: d['net_profit']!,
-                icon: Icons.trending_up,
-                color: d['net_profit']! >= 0 ? AppTheme.paid : AppTheme.danger,
-              ),
+              // Net Profit - Admin only
+              if (isAdmin) ...[
+                const SizedBox(height: 8),
+                StatCard(
+                  label: 'This Month Net Profit',
+                  labelKn: 'ಈ ತಿಂಗಳ ನಿವ್ವಳ ಲಾಭ',
+                  amount: d['net_profit']!,
+                  icon: Icons.trending_up,
+                  color: d['net_profit']! >= 0 ? AppTheme.paid : AppTheme.danger,
+                ),
+              ],
             ],
           ),
         ),

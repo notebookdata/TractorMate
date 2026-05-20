@@ -29,7 +29,8 @@ class RentalsTable extends Table {
   RealColumn get amountPaid => real().withDefault(const Constant(0.0))();
   TextColumn get status => text().withDefault(const Constant('unpaid'))();
   TextColumn get notes => text().nullable()();
-  TextColumn get driverName => text().nullable()(); // v2
+  TextColumn get driverName => text().nullable()();       // v2
+  DateTimeColumn get paymentDate => dateTime().nullable()(); // v3
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();
@@ -55,6 +56,38 @@ class ExpensesTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+class DriversTable extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get phone => text().nullable()();
+  RealColumn get dailySalary => real().withDefault(const Constant(0.0))();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class DriverAttendancesTable extends Table {
+  TextColumn get id => text()();
+  TextColumn get driverId => text()();
+  DateTimeColumn get date => dateTime()();
+  RealColumn get salaryAmount => real()();
+  RealColumn get amountPaid => real().withDefault(const Constant(0.0))();
+  DateTimeColumn get paymentDate => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class AppSettingsTable extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
@@ -65,7 +98,14 @@ class AppSettingsTable extends Table {
 
 // ── Database class ────────────────────────────────────────────────────────
 
-@DriftDatabase(tables: [CustomersTable, RentalsTable, ExpensesTable, AppSettingsTable])
+@DriftDatabase(tables: [
+  CustomersTable,
+  RentalsTable,
+  ExpensesTable,
+  DriversTable,
+  DriverAttendancesTable,
+  AppSettingsTable
+])
 class AppDatabase extends _$AppDatabase {
   AppDatabase._internal() : super(_openConnection());
 
@@ -73,13 +113,21 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase() => _instance;
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (migrator, from, to) async {
           if (from < 2) {
             await migrator.addColumn(rentalsTable, rentalsTable.driverName);
+          }
+          if (from < 3) {
+            await migrator.addColumn(rentalsTable, rentalsTable.paymentDate);
+          }
+          if (from < 6) {
+            // Create new tables
+            await migrator.createTable(driversTable);
+            await migrator.createTable(driverAttendancesTable);
           }
         },
       );
@@ -205,6 +253,57 @@ class AppDatabase extends _$AppDatabase {
       ..addColumns([expensesTable.id.count()]);
     return rentals.watch().asyncExpand((_) => expenses.watch().map((_) => DateTime.now().millisecondsSinceEpoch));
   }
+
+  // ── Driver queries ─────────────────────────────────────────────────────
+
+  Future<List<DriversTableData>> getAllDrivers() =>
+      (select(driversTable)..where((t) => t.deletedAt.isNull())..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+
+  Future<DriversTableData?> getDriver(String id) =>
+      (select(driversTable)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Stream<List<DriversTableData>> watchAllDrivers() =>
+      (select(driversTable)..where((t) => t.deletedAt.isNull())..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+
+  Future<DriversTableData?> getDriverById(String id) =>
+      (select(driversTable)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Stream<DriversTableData?> watchDriver(String id) =>
+      (select(driversTable)..where((t) => t.id.equals(id))).watchSingleOrNull();
+
+  Future<void> upsertDriver(DriversTableCompanion d) =>
+      into(driversTable).insertOnConflictUpdate(d);
+
+  Future<void> markDriverSynced(String id) =>
+      (update(driversTable)..where((t) => t.id.equals(id)))
+          .write(const DriversTableCompanion(isSynced: Value(true)));
+
+  Future<List<DriversTableData>> getUnsyncedDrivers() =>
+      (select(driversTable)..where((t) => t.isSynced.equals(false))).get();
+
+  // ── Driver Attendance queries ──────────────────────────────────────────
+
+  Future<List<DriverAttendancesTableData>> getDriverAttendances(String driverId) =>
+      (select(driverAttendancesTable)
+            ..where((t) => t.driverId.equals(driverId) & t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.date)]))
+          .get();
+
+  Stream<List<DriverAttendancesTableData>> watchDriverAttendances(String driverId) =>
+      (select(driverAttendancesTable)
+            ..where((t) => t.driverId.equals(driverId) & t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.date)]))
+          .watch();
+
+  Future<void> upsertDriverAttendance(DriverAttendancesTableCompanion da) =>
+      into(driverAttendancesTable).insertOnConflictUpdate(da);
+
+  Future<void> markDriverAttendanceSynced(String id) =>
+      (update(driverAttendancesTable)..where((t) => t.id.equals(id)))
+          .write(const DriverAttendancesTableCompanion(isSynced: Value(true)));
+
+  Future<List<DriverAttendancesTableData>> getUnsyncedDriverAttendances() =>
+      (select(driverAttendancesTable)..where((t) => t.isSynced.equals(false))).get();
 
   // ── Settings ───────────────────────────────────────────────────────────
 

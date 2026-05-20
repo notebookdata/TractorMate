@@ -8,7 +8,7 @@ from auth import hash_password
 from database import SessionLocal
 import logging
 
-from routes import auth, customers, rentals, expenses, sync, reports
+from routes import auth, customers, rentals, expenses, sync, reports, drivers, admin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -60,8 +60,10 @@ app.include_router(auth.router)
 app.include_router(customers.router)
 app.include_router(rentals.router)
 app.include_router(expenses.router)
+app.include_router(drivers.router)
 app.include_router(sync.router)
 app.include_router(reports.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

@@ -5,8 +5,11 @@ import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../theme/app_theme.dart';
+import '../../database/app_database.dart';
 import '../reports/reports_screen.dart';
 import '../analytics/analytics_screen.dart';
+import 'user_management_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 const _keyLanguage = 'app_language';
 
@@ -185,7 +188,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Server URL',
                       prefixIcon: Icon(Icons.dns),
-                      hintText: 'http://144.24.131.165/tractormate-api',
+                      hintText: 'http://YOUR_SERVER_IP/tractormate-api',
                     ),
                     keyboardType: TextInputType.url,
                   ),
@@ -239,36 +242,80 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Analytics & Reports
-          _SectionHeader('Analytics & Reports / ವಿಶ್ಲೇಷಣೆ ಮತ್ತು ವರದಿ'),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.bar_chart, color: AppTheme.primary),
-                  title: const Text('Analytics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Charts • ಗ್ರಾಫ್ • ವಿಶ್ಲೇಷಣೆ'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
+          // User Management (Admin only, Web only)
+          if (kIsWeb && authState.role == 'admin') ...[
+            _SectionHeader('User Management / ಬಳಕೆದಾರ ನಿರ್ವಹಣೆ'),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.manage_accounts, color: AppTheme.primary),
+                title: const Text('Manage Users'),
+                subtitle: const Text('Add, edit, delete users'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
-                  ),
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: const Icon(Icons.picture_as_pdf, color: AppTheme.primary),
-                  title: const Text('Generate Reports', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('PDF • ಹಂಚಿಕೊಳ್ಳಿ • Print'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ReportsScreen()),
-                  ),
-                ),
-              ],
+                    MaterialPageRoute(builder: (_) => const UserManagementScreen()),
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ],
+
+          // Analytics & Reports (Admin only)
+          if (authState.role == 'admin') ...[
+            _SectionHeader('Analytics & Reports / ವಿಶ್ಲೇಷಣೆ ಮತ್ತು ವರದಿ'),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.bar_chart, color: AppTheme.primary),
+                    title: const Text('Analytics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Charts • ಗ್ರಾಫ್ • ವಿಶ್ಲೇಷಣೆ'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(Icons.picture_as_pdf, color: AppTheme.primary),
+                    title: const Text('Generate Reports', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    subtitle: const Text('PDF • ಹಂಚಿಕೊಳ್ಳಿ • Print'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ReportsScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Reset Database (Admin only, Web only)
+          if (kIsWeb && authState.role == 'admin') ...[
+            _SectionHeader('⚠️ Danger Zone / ಅಪಾಯದ ವಲಯ'),
+            Card(
+              color: Colors.red.shade50,
+              child: ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: const Text(
+                  'Reset All Data',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Delete all customers, rentals, expenses, and drivers. This cannot be undone!',
+                  style: TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right, color: Colors.red),
+                onTap: () => _confirmResetDatabase(context),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // About
           _SectionHeader('About / ಬಗ್ಗೆ'),
@@ -335,6 +382,103 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               if (mounted) Navigator.pushReplacementNamed(context, '/login');
             },
             child: const Text('Logout', style: TextStyle(color: AppTheme.danger)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmResetDatabase(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('⚠️ Reset All Data?'),
+        content: const Text(
+          'This will permanently delete:\n\n'
+          '• All Customers\n'
+          '• All Rentals\n'
+          '• All Expenses\n'
+          '• All Drivers\n'
+          '• All Attendance Records\n\n'
+          'This action CANNOT be undone!\n\n'
+          'User accounts will remain intact.\n\n'
+          'ಇದು ಎಲ್ಲಾ ಗ್ರಾಹಕರು, ಬಾಡಿಗೆ, ಖರ್ಚುಗಳು ಮತ್ತು ಚಾಲಕರನ್ನು ಶಾಶ್ವತವಾಗಿ ಅಳಿಸುತ್ತದೆ!',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Show loading dialog
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const AlertDialog(
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Resetting database...'),
+                    ],
+                  ),
+                ),
+              );
+              
+              try {
+                await ref.read(apiServiceProvider).resetAllData();
+                
+                // Clear local database as well
+                final db = AppDatabase();
+                await db.transaction(() async {
+                  await db.delete(db.driverAttendancesTable).go();
+                  await db.delete(db.driversTable).go();
+                  await db.delete(db.rentalsTable).go();
+                  await db.delete(db.expensesTable).go();
+                  await db.delete(db.customersTable).go();
+                });
+                
+                if (context.mounted) {
+                  Navigator.pop(context); // Close loading
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('✓ Success'),
+                      content: const Text('All data has been cleared successfully!'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context); // Close loading
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Error'),
+                      content: Text('Failed to reset data: $e'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Yes, Delete All Data', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

@@ -117,6 +117,28 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       builder: (_) => _CustomerForm(
         onSave: (name, phone, notes) async {
           final db = AppDatabase();
+          
+          // Check for duplicate name
+          final existing = await db.getAllCustomers();
+          if (existing.any((c) => c.name.toLowerCase() == name.toLowerCase())) {
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Duplicate Customer / ನಕಲಿ ಗ್ರಾಹಕ'),
+                  content: Text('Customer "$name" already exists!\n\nಗ್ರಾಹಕ "$name" ಈಗಾಗಲೇ ಅಸ್ತಿತ್ವದಲ್ಲಿದೆ!'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return;
+          }
+          
           await db.upsertCustomer(CustomersTableCompanion.insert(
             id: const Uuid().v4(),
             name: name,

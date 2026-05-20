@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'api_service.dart';
 
 const _keyUserId = 'user_id';
@@ -50,11 +51,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this._api) : super(const AuthState()) {
     _restoreSession();
   }
+  
+  Future<void> _writeData(String key, String value) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, value);
+    } else {
+      await _storage.write(key: key, value: value);
+    }
+  }
+  
+  Future<String?> _readData(String key) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(key);
+    } else {
+      return await _storage.read(key: key);
+    }
+  }
+  
+  Future<void> _deleteData(String key) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+    } else {
+      await _storage.delete(key: key);
+    }
+  }
 
   Future<void> _restoreSession() async {
-    final userId = await _storage.read(key: _keyUserId);
-    final username = await _storage.read(key: _keyUsername);
-    final role = await _storage.read(key: _keyUserRole);
+    final userId = await _readData(_keyUserId);
+    final username = await _readData(_keyUsername);
+    final role = await _readData(_keyUserRole);
     final hasToken = await _api.isLoggedIn();
 
     if (hasToken && userId != null) {
@@ -66,9 +94,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final data = await _api.login(username, password);
-      await _storage.write(key: _keyUserId, value: data['user_id']);
-      await _storage.write(key: _keyUsername, value: data['username']);
-      await _storage.write(key: _keyUserRole, value: data['role']);
+      await _writeData(_keyUserId, data['user_id']);
+      await _writeData(_keyUsername, data['username']);
+      await _writeData(_keyUserRole, data['role']);
       state = AuthState(
         isLoggedIn: true,
         userId: data['user_id'],
@@ -84,9 +112,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     await _api.logout();
-    await _storage.delete(key: _keyUserId);
-    await _storage.delete(key: _keyUsername);
-    await _storage.delete(key: _keyUserRole);
+    await _deleteData(_keyUserId);
+    await _deleteData(_keyUsername);
+    await _deleteData(_keyUserRole);
     state = const AuthState();
   }
 

@@ -147,3 +147,69 @@ def create_user(
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)):
     return {"id": current_user.id, "username": current_user.username, "role": current_user.role.value}
+
+
+@router.get("/users")
+def list_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only: list all users."""
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    users = db.query(User).filter(User.is_active == True).all()
+    return [{"id": u.id, "username": u.username, "role": u.role.value, "created_at": u.created_at.isoformat()} for u in users]
+
+
+@router.put("/users/{user_id}")
+def update_user(
+    user_id: str,
+    req: CreateUserRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only: update a user."""
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if username is taken by another user
+    existing = db.query(User).filter(User.username == req.username, User.id != user_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    user.username = req.username
+    if req.password:  # Only update password if provided
+        user.password_hash = hash_password(req.password)
+    user.role = req.role
+    
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "username": user.username, "role": user.role.value}
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only: delete a user."""
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Prevent deleting yourself
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.is_active = False
+    db.commit()
+    return {"detail": "User deleted"}
