@@ -69,21 +69,341 @@ flutter build apk --release
 flutter install
 ```
 
-## Architecture
+## Architecture Overview
+
+### System Architecture
 
 ```
-Android Phone                    Oracle Cloud ARM VM
-─────────────                    ───────────────────
-Flutter UI          ←──────────→  FastAPI (port 8001)
-  ↕ Drift SQLite                    ↕ SQLite DB
-WorkManager sync    ──── HTTPS ───→  nginx proxy
+┌─────────────────────────────────────────────────────────────────────┐
+│                         TractorMate System                          │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────┐                           ┌──────────────────────┐
+│  Mobile Devices  │                           │   Cloud Server       │
+│  (Android/iOS)   │                           │   (Oracle Cloud)     │
+├──────────────────┤                           ├──────────────────────┤
+│                  │                           │                      │
+│  ┌────────────┐  │                           │  ┌────────────────┐  │
+│  │  Flutter   │  │    ← HTTPS REST API →    │  │  FastAPI       │  │
+│  │    App     │  │                           │  │  Backend       │  │
+│  │            │  │   JWT Authentication      │  │  (Python)      │  │
+│  └─────┬──────┘  │                           │  └────────┬───────┘  │
+│        │         │                           │           │          │
+│  ┌─────▼──────┐  │                           │  ┌────────▼───────┐  │
+│  │   Drift    │  │   Background Sync         │  │   SQLAlchemy   │  │
+│  │  Database  │  │   (WorkManager)           │  │      ORM       │  │
+│  │  (SQLite)  │  │                           │  │                │  │
+│  └────────────┘  │                           │  └────────┬───────┘  │
+│                  │                           │           │          │
+└──────────────────┘                           │  ┌────────▼───────┐  │
+                                               │  │    SQLite      │  │
+┌──────────────────┐                           │  │   Database     │  │
+│   Web Browser    │                           │  └────────────────┘  │
+│  (Admin Panel)   │                           │                      │
+├──────────────────┤                           │  ┌────────────────┐  │
+│                  │    ← HTTPS REST API →    │  │     Nginx      │  │
+│  ┌────────────┐  │                           │  │  Reverse Proxy │  │
+│  │  Flutter   │  │                           │  │  + Static Host │  │
+│  │    Web     │  │                           │  └────────────────┘  │
+│  │            │  │                           │                      │
+│  └─────┬──────┘  │                           │  ┌────────────────┐  │
+│        │         │                           │  │   Systemd      │  │
+│  ┌─────▼──────┐  │                           │  │   Service      │  │
+│  │  IndexedDB │  │                           │  │   Manager      │  │
+│  │ (sql.js)   │  │                           │  └────────────────┘  │
+│  └────────────┘  │                           │                      │
+│                  │                           │  ┌────────────────┐  │
+└──────────────────┘                           │  │  Daily Backup  │  │
+                                               │  │   (Cron Job)   │  │
+                                               │  └────────────────┘  │
+                                               │                      │
+                                               └──────────────────────┘
 ```
 
-### Offline Sync
-- Every write sets `is_synced = false` locally
-- WorkManager runs every 15 min when internet available
-- Push local changes → Pull server changes (last-write-wins)
-- Sync status shown in app bar (cloud icon)
+### Component Stack
+
+#### Frontend (Flutter)
+```
+┌─────────────────────────────────────────┐
+│         Presentation Layer              │
+│  ┌─────────────────────────────────┐   │
+│  │ Screens & Widgets               │   │
+│  │ • Dashboard                     │   │
+│  │ • Customers                     │   │
+│  │ • Drivers (Admin only)          │   │
+│  │ • Rentals                       │   │
+│  │ • Expenses                      │   │
+│  │ • Analytics & Reports           │   │
+│  │ • Settings & User Management    │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ State Management (Riverpod)     │   │
+│  │ • Auth Provider                 │   │
+│  │ • Sync Status Provider          │   │
+│  │ • Stream Providers (real-time)  │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ Services Layer                  │   │
+│  │ • API Service (Dio + JWT)       │   │
+│  │ • Auth Service                  │   │
+│  │ • Sync Service                  │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ Data Layer (Drift ORM)          │   │
+│  │ • Database Schema & Migrations  │   │
+│  │ • DAOs (Data Access Objects)    │   │
+│  │ • Type-safe queries             │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ Storage                         │   │
+│  │ • SQLite (Mobile)               │   │
+│  │ • IndexedDB (Web via sql.js)    │   │
+│  │ • FlutterSecureStorage (Mobile) │   │
+│  │ • SharedPreferences (Web)       │   │
+│  └─────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+#### Backend (FastAPI)
+```
+┌─────────────────────────────────────────┐
+│         API Layer                       │
+│  ┌─────────────────────────────────┐   │
+│  │ REST Endpoints                  │   │
+│  │ • /auth (login, users)          │   │
+│  │ • /customers                    │   │
+│  │ • /drivers (admin only)         │   │
+│  │ • /rentals                      │   │
+│  │ • /expenses                     │   │
+│  │ • /sync (push/pull)             │   │
+│  │ • /reports                      │   │
+│  │ • /admin (reset data)           │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ Middleware                      │   │
+│  │ • CORS Handler                  │   │
+│  │ • JWT Authentication            │   │
+│  │ • Request Logging               │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ Business Logic                  │   │
+│  │ • Role-based Access Control     │   │
+│  │ • Sync Conflict Resolution      │   │
+│  │ • Data Validation               │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ Data Layer (SQLAlchemy ORM)     │   │
+│  │ • Models & Relationships        │   │
+│  │ • Query Optimization            │   │
+│  │ • Transaction Management        │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ Storage                         │   │
+│  │ • SQLite Database               │   │
+│  │ • File Storage (receipts)       │   │
+│  │ • Automated Backups             │   │
+│  └─────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+### Data Flow Diagram
+
+#### User Creates a Rental
+```
+┌─────────┐      ┌─────────┐      ┌──────────┐      ┌────────┐
+│  User   │      │  Flutter│      │  Local   │      │ Server │
+│ Action  │      │   App   │      │ Database │      │   API  │
+└────┬────┘      └────┬────┘      └────┬─────┘      └───┬────┘
+     │                │                 │                │
+     │ 1. Fill Form   │                 │                │
+     ├───────────────>│                 │                │
+     │                │                 │                │
+     │                │ 2. Save Rental  │                │
+     │                ├────────────────>│                │
+     │                │   (is_synced=F) │                │
+     │                │                 │                │
+     │                │ 3. Return ID    │                │
+     │                │<────────────────┤                │
+     │                │                 │                │
+     │ 4. Show Success│                 │                │
+     │<───────────────┤                 │                │
+     │                │                 │                │
+     │                │ 5. Background Sync (15 min later)│
+     │                │                 │                │
+     │                │ 6. Fetch Unsynced Records        │
+     │                │<────────────────┤                │
+     │                │                 │                │
+     │                │ 7. POST /sync/push               │
+     │                ├─────────────────┼───────────────>│
+     │                │   (rental data) │                │
+     │                │                 │ 8. Save to DB  │
+     │                │                 │<───────────────┤
+     │                │                 │                │
+     │                │ 9. Success Response              │
+     │                │<────────────────┼────────────────┤
+     │                │                 │                │
+     │                │ 10. Mark as Synced               │
+     │                ├────────────────>│                │
+     │                │   (is_synced=T) │                │
+     │                │                 │                │
+     │ 11. Update     │                 │                │
+     │  Sync Badge    │                 │                │
+     │<───────────────┤                 │                │
+     │                │                 │                │
+```
+
+### Offline-First Sync Mechanism
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Sync Architecture                         │
+└──────────────────────────────────────────────────────────────┘
+
+MOBILE DEVICE                              SERVER
+─────────────                              ──────
+
+┌─────────────────┐                   ┌──────────────────┐
+│  User Actions   │                   │   Server Time    │
+│  (CRUD ops)     │                   │   (UTC)          │
+└────────┬────────┘                   └────────┬─────────┘
+         │                                     │
+         │ Mark: is_synced = FALSE             │
+         │ Store: updated_at timestamp         │
+         │                                     │
+         ▼                                     │
+┌─────────────────┐                            │
+│  Local SQLite   │                            │
+│  • Customers    │                            │
+│  • Rentals      │                            │
+│  • Expenses     │                            │
+│  • Drivers      │                            │
+│  • Attendances  │                            │
+└────────┬────────┘                            │
+         │                                     │
+         │ Every 15 minutes                    │
+         │ (WorkManager / Web periodic)        │
+         │                                     │
+         ▼                                     │
+┌─────────────────┐                            │
+│  Sync Service   │                            │
+│  1. Check WiFi  │                            │
+│  2. Push Changes│─────HTTPS POST───────────> │
+│     (if any)    │     /sync/push             │
+│                 │                             │
+│  3. Pull Changes│<────HTTPS GET──────────────│
+│     (since last)│     /sync/pull?since=T     │
+│                 │                             │
+│  4. Resolve     │                   ┌────────▼────────┐
+│     Conflicts   │                   │  Server SQLite  │
+│     (last-write │                   │  • Central DB   │
+│      wins)      │                   │  • All records  │
+│                 │                   │  • User auth    │
+│  5. Update      │                   └────────┬────────┘
+│     local DB    │                            │
+│                 │<───────JSON Response───────┤
+│  6. Mark synced │     (server_time)          │
+│     (is_synced  │                            │
+│      = TRUE)    │                            │
+└────────┬────────┘                            │
+         │                                     │
+         │ Update last_sync = server_time     │
+         │ (prevents clock skew issues)        │
+         │                                     │
+         ▼                                     │
+┌─────────────────┐                            │
+│  UI Updates     │                            │
+│  • Sync badge   │                            │
+│  • Live streams │                            │
+│    (Riverpod)   │                            │
+└─────────────────┘                            │
+```
+
+### Role-Based Access Control
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    User Roles & Permissions              │
+└──────────────────────────────────────────────────────────┘
+
+ADMIN ROLE                          USER ROLE
+──────────                          ─────────
+
+✓ View Dashboard                    ✓ View Dashboard
+  (Full stats)                        (Limited stats - no profit)
+
+✓ Manage Customers                  ✓ Manage Customers
+  (Add/Edit/Delete)                   (Add/Edit only)
+
+✓ Manage Drivers                    ✗ No Driver Access
+  (Add/Edit/Delete)                   (Tab hidden)
+  ✓ Driver Attendance
+  ✓ Payment Tracking
+
+✓ Manage Rentals                    ✓ Manage Rentals
+  (Add/Edit/Delete)                   (Add/Edit only)
+
+✓ Manage Expenses                   ✓ Manage Expenses
+  (Add/Edit/Delete)                   (Add/Edit only)
+
+✓ View Analytics                    ✗ No Analytics Access
+  (Charts & Reports)                  (Hidden from Settings)
+
+✓ Generate Reports                  ✗ No Reports Access
+  (PDF Export)                        (Hidden from Settings)
+
+✓ User Management                   ✗ No User Management
+  (Add/Edit/Delete users)             (Web only, admin only)
+
+✓ Reset Database                    ✗ No Reset Access
+  (Danger zone)                       (Web only, admin only)
+
+✓ System Settings                   ✓ Basic Settings
+  (Server URL, Sync)                  (Server URL, Sync)
+```
+
+### Technology Stack
+
+#### Mobile App
+- **Framework:** Flutter 3.32+
+- **Language:** Dart 3.8+
+- **Database:** Drift (SQLite wrapper)
+- **State Management:** Riverpod
+- **HTTP Client:** Dio
+- **Background Tasks:** WorkManager
+- **Storage:** FlutterSecureStorage
+- **Charts:** fl_chart
+- **PDF:** pdf package
+- **Localization:** flutter_localizations (en, kn)
+
+#### Web App
+- **Framework:** Flutter Web
+- **Database:** sql.js (SQLite in browser via WASM)
+- **Storage:** IndexedDB (via Drift), SharedPreferences
+- **Build:** flutter build web
+
+#### Backend
+- **Framework:** FastAPI
+- **Language:** Python 3.10+
+- **Database:** SQLite with SQLAlchemy ORM
+- **Authentication:** JWT (python-jose)
+- **Server:** Uvicorn (ASGI)
+- **Process Manager:** Systemd
+- **Reverse Proxy:** Nginx
+- **Deployment:** Oracle Cloud ARM VM (Ubuntu 22.04)
+
+#### DevOps
+- **Version Control:** Git
+- **Backup:** Daily cron job + rsync
+- **Monitoring:** Systemd + journald logs
+- **SSL:** Let's Encrypt (recommended)
 
 ## Default Credentials
 
